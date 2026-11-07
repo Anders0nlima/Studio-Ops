@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RoteiristaOutput",
+  "type": "object",
+  "required": [
+    "topic",
+    "style",
+    "targetDuration",
+    "totalWordCount",
+    "scenes",
+    "fullNarration"
+  ],
+  "properties": {
+    "topic": { "type": "string" },
+    "style": { "type": "string" },
+    "targetDuration": { "type": "string" },
+    "totalWordCount": {
+      "type": "integer",
+      "minimum": 20,
+      "maximum": 60
+    },
+    "scenes": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": [
+          "order",
+          "type",
+          "timeRange",
+          "narrationText",
+          "imagePromptEnglish"
+        ],
+        "properties": {
+          "order": { "type": "integer" },
+          "type": {
+            "type": "string",
+            "enum": ["hook", "body", "cta"]
+          },
+          "timeRange": { "type": "string" },
+          "narrationText": { "type": "string" },
+          "imagePromptEnglish": { "type": "string" }
+        }
+      }
+    },
+    "fullNarration": { "type": "string" }
+  }
+}
