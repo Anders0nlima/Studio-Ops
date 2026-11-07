@@ -11,6 +11,9 @@ export interface TrendItem {
   image: string
   category?: string
   retentionScore?: number
+  topic?: string
+  hookIdea?: string
+  visualStyleRecommended?: string
 }
 
 export interface VisualStyle {
@@ -43,21 +46,23 @@ export interface GrowthMetadata {
   title: string
   description: string
   hashtags: string[]
-  recommendedAudio?: string
-  hookCritique?: string
+  callToActionQuestion?: string
+  suggestedAudioVibe?: string
+  retentionStrategyTip?: string
 }
 
-export type JobStatus = 
+export type PipelineStep =
   | 'idle'
   | 'scripting'
-  | 'generating_media'
+  | 'optimizing_seo'
+  | 'dispatching_colab'
   | 'rendering_video'
   | 'completed'
   | 'error'
 
 export interface VideoGenerationJob {
   id: string
-  status: JobStatus
+  status: PipelineStep
   progress: number
   statusMessage: string
   videoUrl?: string
@@ -78,7 +83,7 @@ export interface MetricCardData {
 export interface PerformanceTip {
   id: string
   text: string
-  category: 'hook' | 'timing' | 'retention' | 'cta'
+  category: 'hook' | 'timing' | 'retention' | 'cta' | 'pacing'
 }
 
 export interface AgentInfo {
@@ -87,4 +92,11 @@ export interface AgentInfo {
   role: string
   status: 'online' | 'busy' | 'offline'
   model: string
+}
+
+export interface ConnectionConfig {
+  n8nUrl: string
+  colabUrl: string
+  ollamaModel: string
+  autoPoll: boolean
 }
