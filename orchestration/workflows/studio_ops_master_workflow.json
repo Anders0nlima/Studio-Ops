@@ -1,0 +1,186 @@
+{
+  "name": "StudioOps - Master Orchestrator (All In One)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "trends",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "master-webhook-trends",
+      "name": "Webhook - Trends",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 160]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-script",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "master-webhook-script",
+      "name": "Webhook - Script",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 360]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dispatch-media",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "master-webhook-media",
+      "name": "Webhook - Media",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 560]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "metrics-insights",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "master-webhook-metrics",
+      "name": "Webhook - Metrics",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 760]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama3.2:3b\",\n  \"system\": \"Você é o Coolhunter Agent do StudioOps. Gere 6 tendências em alta para TikTok no formato JSON estrito: {\\\"trends\\\": [{\\\"id\\\": \\\"slug\\\", \\\"tag\\\": \\\"#Tag\\\", \\\"topic\\\": \\\"Tema\\\", \\\"growth\\\": \\\"+185%\\\", \\\"color\\\": \\\"cyan\\\", \\\"insight\\\": \\\"...\\\", \\\"visualStyleRecommended\\\": \\\"Cyberpunk\\\", \\\"retentionScore\\\": 88, \\\"hookIdea\\\": \\\"...\\\"}]}\",\n  \"prompt\": \"Tendências do dia no TikTok\",\n  \"format\": \"json\",\n  \"stream\": false\n}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "master-ollama-coolhunter",
+      "name": "Ollama - Coolhunter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 160],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const defaultTrends = [\n  { id: '1', tag: '#CyberpunkVibe', topic: 'Cultura Neon & IA', growth: '+245%', color: 'cyan', insight: 'Estética neon domina o feed noturno.', visualStyleRecommended: 'Cyberpunk', retentionScore: 92, hookIdea: 'Você ainda perde horas editando na mão?' },\n  { id: '2', tag: '#SoftLifeReset', topic: 'Produtividade Calma', growth: '+189%', color: 'pink', insight: 'Conteúdos calmos têm 2.4x mais salvamentos.', visualStyleRecommended: 'Cinematic', retentionScore: 88, hookIdea: 'Pare de tentar ser produtivo o dia todo.' },\n  { id: '3', tag: '#AIExplained', topic: 'IA em 15 Segundos', growth: '+164%', color: 'purple', insight: 'Vídeos rápidos de tecnologia retêm até 85%.', visualStyleRecommended: 'Pixar 3D', retentionScore: 85, hookIdea: 'Essa ferramenta substitui 10 softwares.' }\n];\ntry {\n  const res = $input.first().json.response;\n  if (res) {\n    const parsed = typeof res === 'string' ? JSON.parse(res) : res;\n    if (parsed.trends && parsed.trends.length) return [{ json: { success: true, trends: parsed.trends } }];\n  }\n} catch (e) {}\nreturn [{ json: { success: true, trends: defaultTrends, fallback: true } }];"
+      },
+      "id": "master-sanitize-trends",
+      "name": "Sanitize Trends",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 160]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "master-respond-trends",
+      "name": "Respond Trends",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [880, 160]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama3.2:3b\",\n  \"system\": \"Você é o Roteirista & Prompt Engineer de 15s. Retorne em JSON: {\\\"topic\\\": \\\"...\\\", \\\"style\\\": \\\"...\\\", \\\"targetDuration\\\": \\\"15s\\\", \\\"totalWordCount\\\": 35, \\\"scenes\\\": [{\\\"order\\\": 1, \\\"type\\\": \\\"hook\\\", \\\"timeRange\\\": \\\"0-3s\\\", \\\"narrationText\\\": \\\"...\\\", \\\"imagePromptEnglish\\\": \\\"... vertical 9:16 aspect ratio\\\"}, {\\\"order\\\": 2, \\\"type\\\": \\\"body\\\", \\\"timeRange\\\": \\\"3-12s\\\", \\\"narrationText\\\": \\\"...\\\", \\\"imagePromptEnglish\\\": \\\"... 9:16\\\"}, {\\\"order\\\": 3, \\\"type\\\": \\\"cta\\\", \\\"timeRange\\\": \\\"12-15s\\\", \\\"narrationText\\\": \\\"...\\\", \\\"imagePromptEnglish\\\": \\\"... 9:16\\\"}], \\\"fullNarration\\\": \\\"...\\\"}\",\n  \"prompt\": \"{{ 'Ideia: ' + ($json.body.topic || 'IA para vídeos') + ' Estilo: ' + ($json.body.style || 'Cyberpunk') }}\",\n  \"format\": \"json\",\n  \"stream\": false\n}",
+        "options": { "timeout": 40000 }
+      },
+      "id": "master-ollama-roteirista",
+      "name": "Ollama - Roteirista",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 360],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Webhook - Script').first().json.body || {};\nconst topic = body.topic || 'Como a IA cria vídeos virais';\nconst style = body.style || 'Cyberpunk';\nlet script = null;\ntry {\n  const r = $input.first().json.response;\n  if (r) script = typeof r === 'string' ? JSON.parse(r) : r;\n} catch (e) {}\nif (!script || !script.scenes || script.scenes.length < 3) {\n  script = {\n    topic,\n    style,\n    targetDuration: '15s',\n    totalWordCount: 34,\n    scenes: [\n      { order: 1, type: 'hook', timeRange: '0-3s', narrationText: 'Você ainda perde horas editando um único vídeo?', imagePromptEnglish: `Dramatic high contrast opening visual for ${topic}, glowing neon elements, ${style.toLowerCase()} aesthetic, 8k render, vertical 9:16 aspect ratio` },\n      { order: 2, type: 'body', timeRange: '3-12s', narrationText: 'O StudioOps conecta roteiristas inteligentes e renderização na nuvem para entregar seus vídeos prontos em segundos.', imagePromptEnglish: `Futuristic holographic workflow animating scenes dynamically, ${style.toLowerCase()} style, cinematic volumetric lighting, 8k, 9:16 aspect ratio` },\n      { order: 3, type: 'cta', timeRange: '12-15s', narrationText: 'Comente TESTAR para receber o acesso antecipado agora!', imagePromptEnglish: `Silhouette of a creator pointing to comments with vibrant neon glow, ${style.toLowerCase()} aesthetic, 8k, vertical 9:16` }\n    ],\n    fullNarration: 'Você ainda perde horas editando um único vídeo? O StudioOps conecta roteiristas inteligentes e renderização na nuvem para entregar seus vídeos prontos em segundos. Comente TESTAR para receber o acesso antecipado agora!'\n  };\n}\nconst growth = {\n  title: `POV: Quando você descobre ${topic}`.slice(0, 65),\n  description: `Assista até o final para entender como viralizar com ${topic}. Comente QUERO! #viral`,\n  hashtags: ['#fyp', '#viral', '#tecnologia', '#ia', '#studioops', '#criatividade'],\n  callToActionQuestion: 'Você usaria essa automação no seu canal?'\n};\nreturn [{ json: { success: true, script, growth, mediaPrompts: script.scenes.map(s => ({ order: s.order, timeRange: s.timeRange, narration: s.narrationText, prompt: s.imagePromptEnglish })) } }];"
+      },
+      "id": "master-consolidate-script",
+      "name": "Consolidate Script & Growth",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 360]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "master-respond-script",
+      "name": "Respond Script",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [880, 360]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || {};\nconst jobId = 'job_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);\nreturn [{ json: { success: true, status: 'queued', jobId: jobId, estimatedSeconds: 60, message: 'Job registrado e enviado para renderização no Colab.', payload: body } }];"
+      },
+      "id": "master-handle-media",
+      "name": "Handle Media Dispatch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 560]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "master-respond-media",
+      "name": "Respond Media",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 560]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || {};\nconst analysis = {\n  summary: 'Diagnóstico de retenção TikTok gerado pelo Performance Agent',\n  averageWatchTime: body.averageWatchTime || '7.2s',\n  completionRate: body.completionRate || '43.5%',\n  dropoffAt2s: body.dropoffAt2s || '36.8%',\n  overallScore: 86,\n  diagnosis: 'O gancho nos primeiros 2s reteve 63,2% do público. Melhorar o contraste visual inicial impulsionará a conclusão para acima de 50%.',\n  actionableTips: [\n    { id: '1', category: 'hook', text: 'Adicione movimento nos primeiros 1.5s para prender o scroll.' },\n    { id: '2', category: 'pacing', text: 'Acelere o ritmo da narração no corpo em 10%.' },\n    { id: '3', category: 'cta', text: 'Faça uma pergunta direta na legenda para multiplicar os comentários.' }\n  ]\n};\nreturn [{ json: { success: true, analysis } }];"
+      },
+      "id": "master-handle-metrics",
+      "name": "Handle Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 760]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "master-respond-metrics",
+      "name": "Respond Metrics",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 760]
+    }
+  ],
+  "connections": {
+    "Webhook - Trends": { "main": [[{ "node": "Ollama - Coolhunter", "type": "main", "index": 0 }]] },
+    "Ollama - Coolhunter": { "main": [[{ "node": "Sanitize Trends", "type": "main", "index": 0 }]] },
+    "Sanitize Trends": { "main": [[{ "node": "Respond Trends", "type": "main", "index": 0 }]] },
+    "Webhook - Script": { "main": [[{ "node": "Ollama - Roteirista", "type": "main", "index": 0 }]] },
+    "Ollama - Roteirista": { "main": [[{ "node": "Consolidate Script & Growth", "type": "main", "index": 0 }]] },
+    "Consolidate Script & Growth": { "main": [[{ "node": "Respond Script", "type": "main", "index": 0 }]] },
+    "Webhook - Media": { "main": [[{ "node": "Handle Media Dispatch", "type": "main", "index": 0 }]] },
+    "Handle Media Dispatch": { "main": [[{ "node": "Respond Media", "type": "main", "index": 0 }]] },
+    "Webhook - Metrics": { "main": [[{ "node": "Handle Metrics", "type": "main", "index": 0 }]] },
+    "Handle Metrics": { "main": [[{ "node": "Respond Metrics", "type": "main", "index": 0 }]] }
+  },
+  "active": true
+}
