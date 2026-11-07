@@ -1,5 +1,5 @@
 {
-  "name": "StudioOps - Master Orchestrator (All In One)",
+  "name": "StudioOps - Master Orchestrator (with Toqan Adapter Layer)",
   "nodes": [
     {
       "parameters": {
@@ -12,46 +12,72 @@
       "name": "Webhook - Trends",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [200, 160]
+      "position": [160, 160]
     },
     {
       "parameters": {
-        "httpMethod": "POST",
-        "path": "generate-script",
-        "responseMode": "responseNode",
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-trends-provider",
+              "leftValue": "={{ ($env.AI_PROVIDER || 'ollama').toLowerCase().trim() }}",
+              "rightValue": "toqan",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
         "options": {}
       },
-      "id": "master-webhook-script",
-      "name": "Webhook - Script",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [200, 360]
+      "id": "master-router-trends",
+      "name": "Router - Trends Provider",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [360, 160]
     },
     {
       "parameters": {
-        "httpMethod": "POST",
-        "path": "dispatch-media",
-        "responseMode": "responseNode",
-        "options": {}
+        "method": "POST",
+        "url": "={{ $env.TOQAN_API_URL || 'https://toqan-gateway.internal.ifood.com.br/v1/chat/completions' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + ($env.TOQAN_API_KEY || '') }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Requester-App", "value": "StudioOps" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $env.TOQAN_MODEL || 'claude-3-5-sonnet' }}\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Você é o Coolhunter Agent do StudioOps. Gere 6 tendências em alta para TikTok no formato JSON estrito: {\\\"trends\\\": [{\\\"id\\\": \\\"slug\\\", \\\"tag\\\": \\\"#Tag\\\", \\\"topic\\\": \\\"Tema\\\", \\\"growth\\\": \\\"+185%\\\", \\\"color\\\": \\\"cyan\\\", \\\"insight\\\": \\\"...\\\", \\\"visualStyleRecommended\\\": \\\"Cyberpunk\\\", \\\"retentionScore\\\": 88, \\\"hookIdea\\\": \\\"...\\\"}]}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Tendências do dia no TikTok\"\n    }\n  ],\n  \"response_format\": { \"type\": \"json_object\" },\n  \"temperature\": 0.7\n}",
+        "options": { "timeout": 45000 }
       },
-      "id": "master-webhook-media",
-      "name": "Webhook - Media",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [200, 560]
+      "id": "master-toqan-coolhunter",
+      "name": "Toqan - Coolhunter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [560, 80],
+      "continueOnFail": true
     },
     {
       "parameters": {
-        "httpMethod": "POST",
-        "path": "metrics-insights",
-        "responseMode": "responseNode",
-        "options": {}
+        "jsCode": "const item = $input.first().json;\nlet rawContent = '';\nif (item.choices && item.choices.length > 0 && item.choices[0].message) {\n  rawContent = item.choices[0].message.content;\n} else if (item.response) {\n  rawContent = item.response;\n} else if (item.content) {\n  rawContent = item.content;\n} else {\n  rawContent = JSON.stringify(item);\n}\nreturn [{ json: { source: 'toqan', provider: 'toqan-gateway', response: rawContent } }];"
       },
-      "id": "master-webhook-metrics",
-      "name": "Webhook - Metrics",
-      "type": "n8n-nodes-base.webhook",
+      "id": "master-toqan-adapter-trends",
+      "name": "Adapter - Toqan Trends",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [200, 760]
+      "position": [760, 80]
     },
     {
       "parameters": {
@@ -66,18 +92,18 @@
       "name": "Ollama - Coolhunter",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [440, 160],
+      "position": [560, 240],
       "continueOnFail": true
     },
     {
       "parameters": {
-        "jsCode": "const defaultTrends = [\n  { id: '1', tag: '#CyberpunkVibe', topic: 'Cultura Neon & IA', growth: '+245%', color: 'cyan', insight: 'Estética neon domina o feed noturno.', visualStyleRecommended: 'Cyberpunk', retentionScore: 92, hookIdea: 'Você ainda perde horas editando na mão?' },\n  { id: '2', tag: '#SoftLifeReset', topic: 'Produtividade Calma', growth: '+189%', color: 'pink', insight: 'Conteúdos calmos têm 2.4x mais salvamentos.', visualStyleRecommended: 'Cinematic', retentionScore: 88, hookIdea: 'Pare de tentar ser produtivo o dia todo.' },\n  { id: '3', tag: '#AIExplained', topic: 'IA em 15 Segundos', growth: '+164%', color: 'purple', insight: 'Vídeos rápidos de tecnologia retêm até 85%.', visualStyleRecommended: 'Pixar 3D', retentionScore: 85, hookIdea: 'Essa ferramenta substitui 10 softwares.' }\n];\ntry {\n  const res = $input.first().json.response;\n  if (res) {\n    const parsed = typeof res === 'string' ? JSON.parse(res) : res;\n    if (parsed.trends && parsed.trends.length) return [{ json: { success: true, trends: parsed.trends } }];\n  }\n} catch (e) {}\nreturn [{ json: { success: true, trends: defaultTrends, fallback: true } }];"
+        "jsCode": "const defaultTrends = [\n  { id: '1', tag: '#CyberpunkVibe', topic: 'Cultura Neon & IA', growth: '+245%', color: 'cyan', insight: 'Estética neon domina o feed noturno.', visualStyleRecommended: 'Cyberpunk', retentionScore: 92, hookIdea: 'Você ainda perde horas editando na mão?' },\n  { id: '2', tag: '#SoftLifeReset', topic: 'Produtividade Calma', growth: '+189%', color: 'pink', insight: 'Conteúdos calmos têm 2.4x mais salvamentos.', visualStyleRecommended: 'Cinematic', retentionScore: 88, hookIdea: 'Pare de tentar ser produtivo o dia todo.' },\n  { id: '3', tag: '#AIExplained', topic: 'IA em 15 Segundos', growth: '+164%', color: 'purple', insight: 'Vídeos rápidos de tecnologia retêm até 85%.', visualStyleRecommended: 'Pixar 3D', retentionScore: 85, hookIdea: 'Essa ferramenta substitui 10 softwares.' }\n];\ntry {\n  const inputObj = $input.first().json;\n  const res = inputObj.response;\n  const source = inputObj.source || 'ollama';\n  if (res) {\n    const parsed = typeof res === 'string' ? JSON.parse(res.replace(/^```json\\s*|\\s*```$/g, '')) : res;\n    if (parsed.trends && parsed.trends.length) return [{ json: { success: true, source, trends: parsed.trends } }];\n  }\n} catch (e) {}\nreturn [{ json: { success: true, source: 'fallback_resilience', trends: defaultTrends, fallback: true } }];"
       },
       "id": "master-sanitize-trends",
       "name": "Sanitize Trends",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [660, 160]
+      "position": [960, 160]
     },
     {
       "parameters": {
@@ -88,7 +114,85 @@
       "name": "Respond Trends",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [880, 160]
+      "position": [1160, 160]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-script",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "master-webhook-script",
+      "name": "Webhook - Script",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [160, 440]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-script-provider",
+              "leftValue": "={{ ($env.AI_PROVIDER || 'ollama').toLowerCase().trim() }}",
+              "rightValue": "toqan",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "master-router-script",
+      "name": "Router - Script Provider",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [360, 440]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TOQAN_API_URL || 'https://toqan-gateway.internal.ifood.com.br/v1/chat/completions' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + ($env.TOQAN_API_KEY || '') }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Requester-App", "value": "StudioOps" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $env.TOQAN_MODEL || 'claude-3-5-sonnet' }}\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Você é o Roteirista & Prompt Engineer de 15s. Retorne em JSON: {\\\"topic\\\": \\\"...\\\", \\\"style\\\": \\\"...\\\", \\\"targetDuration\\\": \\\"15s\\\", \\\"totalWordCount\\\": 35, \\\"scenes\\\": [{\\\"order\\\": 1, \\\"type\\\": \\\"hook\\\", \\\"timeRange\\\": \\\"0-3s\\\", \\\"narrationText\\\": \\\"...\\\", \\\"imagePromptEnglish\\\": \\\"... vertical 9:16 aspect ratio\\\"}, {\\\"order\\\": 2, \\\"type\\\": \\\"body\\\", \\\"timeRange\\\": \\\"3-12s\\\", \\\"narrationText\\\": \\\"...\\\", \\\"imagePromptEnglish\\\": \\\"... 9:16\\\"}, {\\\"order\\\": 3, \\\"type\\\": \\\"cta\\\", \\\"timeRange\\\": \\\"12-15s\\\", \\\"narrationText\\\": \\\"...\\\", \\\"imagePromptEnglish\\\": \\\"... 9:16\\\"}], \\\"fullNarration\\\": \\\"...\\\"}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ 'Ideia: ' + ($('Webhook - Script').first().json.body?.topic || 'IA para vídeos') + ' Estilo: ' + ($('Webhook - Script').first().json.body?.style || 'Cyberpunk') }}\"\n    }\n  ],\n  \"response_format\": { \"type\": \"json_object\" },\n  \"temperature\": 0.7\n}",
+        "options": { "timeout": 45000 }
+      },
+      "id": "master-toqan-roteirista",
+      "name": "Toqan - Roteirista",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [560, 360],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nlet rawContent = '';\nif (item.choices && item.choices.length > 0 && item.choices[0].message) {\n  rawContent = item.choices[0].message.content;\n} else if (item.response) {\n  rawContent = item.response;\n} else if (item.content) {\n  rawContent = item.content;\n} else {\n  rawContent = JSON.stringify(item);\n}\nreturn [{ json: { source: 'toqan', provider: 'toqan-gateway', response: rawContent } }];"
+      },
+      "id": "master-toqan-adapter-script",
+      "name": "Adapter - Toqan Script",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 360]
     },
     {
       "parameters": {
@@ -96,25 +200,25 @@
         "url": "http://127.0.0.1:11434/api/generate",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"llama3.2:3b\",\n  \"system\": \"Você é o Roteirista & Prompt Engineer de 15s. Retorne em JSON: {\\\"topic\\\": \\\"...\\\", \\\"style\\\": \\\"...\\\", \\\"targetDuration\\\": \\\"15s\\\", \\\"totalWordCount\\\": 35, \\\"scenes\\\": [{\\\"order\\\": 1, \\\"type\\\": \\\"hook\\\", \\\"timeRange\\\": \\\"0-3s\\\", \\\"narrationText\\\": \\\"...\\\", \\\"imagePromptEnglish\\\": \\\"... vertical 9:16 aspect ratio\\\"}, {\\\"order\\\": 2, \\\"type\\\": \\\"body\\\", \\\"timeRange\\\": \\\"3-12s\\\", \\\"narrationText\\\": \\\"...\\\", \\\"imagePromptEnglish\\\": \\\"... 9:16\\\"}, {\\\"order\\\": 3, \\\"type\\\": \\\"cta\\\", \\\"timeRange\\\": \\\"12-15s\\\", \\\"narrationText\\\": \\\"...\\\", \\\"imagePromptEnglish\\\": \\\"... 9:16\\\"}], \\\"fullNarration\\\": \\\"...\\\"}\",\n  \"prompt\": \"{{ 'Ideia: ' + ($json.body.topic || 'IA para vídeos') + ' Estilo: ' + ($json.body.style || 'Cyberpunk') }}\",\n  \"format\": \"json\",\n  \"stream\": false\n}",
+        "jsonBody": "={\n  \"model\": \"llama3.2:3b\",\n  \"system\": \"Você é o Roteirista & Prompt Engineer de 15s. Retorne em JSON: {\\\"topic\\\": \\\"...\\\", \\\"style\\\": \\\"...\\\", \\\"targetDuration\\\": \\\"15s\\\", \\\"totalWordCount\\\": 35, \\\"scenes\\\": [{\\\"order\\\": 1, \\\"type\\\": \\\"hook\\\", \\\"timeRange\\\": \\\"0-3s\\\", \\\"narrationText\\\": \\\"...\\\", \\\"imagePromptEnglish\\\": \\\"... vertical 9:16 aspect ratio\\\"}, {\\\"order\\\": 2, \\\"type\\\": \\\"body\\\", \\\"timeRange\\\": \\\"3-12s\\\", \\\"narrationText\\\": \\\"...\\\", \\\"imagePromptEnglish\\\": \\\"... 9:16\\\"}, {\\\"order\\\": 3, \\\"type\\\": \\\"cta\\\", \\\"timeRange\\\": \\\"12-15s\\\", \\\"narrationText\\\": \\\"...\\\", \\\"imagePromptEnglish\\\": \\\"... 9:16\\\"}], \\\"fullNarration\\\": \\\"...\\\"}\",\n  \"prompt\": \"{{ 'Ideia: ' + ($('Webhook - Script').first().json.body?.topic || 'IA para vídeos') + ' Estilo: ' + ($('Webhook - Script').first().json.body?.style || 'Cyberpunk') }}\",\n  \"format\": \"json\",\n  \"stream\": false\n}",
         "options": { "timeout": 40000 }
       },
       "id": "master-ollama-roteirista",
       "name": "Ollama - Roteirista",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [440, 360],
+      "position": [560, 520],
       "continueOnFail": true
     },
     {
       "parameters": {
-        "jsCode": "const body = $('Webhook - Script').first().json.body || {};\nconst topic = body.topic || 'Como a IA cria vídeos virais';\nconst style = body.style || 'Cyberpunk';\nlet script = null;\ntry {\n  const r = $input.first().json.response;\n  if (r) script = typeof r === 'string' ? JSON.parse(r) : r;\n} catch (e) {}\nif (!script || !script.scenes || script.scenes.length < 3) {\n  script = {\n    topic,\n    style,\n    targetDuration: '15s',\n    totalWordCount: 34,\n    scenes: [\n      { order: 1, type: 'hook', timeRange: '0-3s', narrationText: 'Você ainda perde horas editando um único vídeo?', imagePromptEnglish: `Dramatic high contrast opening visual for ${topic}, glowing neon elements, ${style.toLowerCase()} aesthetic, 8k render, vertical 9:16 aspect ratio` },\n      { order: 2, type: 'body', timeRange: '3-12s', narrationText: 'O StudioOps conecta roteiristas inteligentes e renderização na nuvem para entregar seus vídeos prontos em segundos.', imagePromptEnglish: `Futuristic holographic workflow animating scenes dynamically, ${style.toLowerCase()} style, cinematic volumetric lighting, 8k, 9:16 aspect ratio` },\n      { order: 3, type: 'cta', timeRange: '12-15s', narrationText: 'Comente TESTAR para receber o acesso antecipado agora!', imagePromptEnglish: `Silhouette of a creator pointing to comments with vibrant neon glow, ${style.toLowerCase()} aesthetic, 8k, vertical 9:16` }\n    ],\n    fullNarration: 'Você ainda perde horas editando um único vídeo? O StudioOps conecta roteiristas inteligentes e renderização na nuvem para entregar seus vídeos prontos em segundos. Comente TESTAR para receber o acesso antecipado agora!'\n  };\n}\nconst growth = {\n  title: `POV: Quando você descobre ${topic}`.slice(0, 65),\n  description: `Assista até o final para entender como viralizar com ${topic}. Comente QUERO! #viral`,\n  hashtags: ['#fyp', '#viral', '#tecnologia', '#ia', '#studioops', '#criatividade'],\n  callToActionQuestion: 'Você usaria essa automação no seu canal?'\n};\nreturn [{ json: { success: true, script, growth, mediaPrompts: script.scenes.map(s => ({ order: s.order, timeRange: s.timeRange, narration: s.narrationText, prompt: s.imagePromptEnglish })) } }];"
+        "jsCode": "const body = $('Webhook - Script').first().json.body || {};\nconst topic = body.topic || 'Como a IA cria vídeos virais';\nconst style = body.style || 'Cyberpunk';\nlet script = null;\ntry {\n  const inputObj = $input.first().json;\n  const r = inputObj.response;\n  if (r) script = typeof r === 'string' ? JSON.parse(r.replace(/^```json\\s*|\\s*```$/g, '')) : r;\n} catch (e) {}\nif (!script || !script.scenes || script.scenes.length < 3) {\n  script = {\n    topic,\n    style,\n    targetDuration: '15s',\n    totalWordCount: 34,\n    scenes: [\n      { order: 1, type: 'hook', timeRange: '0-3s', narrationText: 'Você ainda perde horas editando um único vídeo?', imagePromptEnglish: `Dramatic high contrast opening visual for ${topic}, glowing neon elements, ${style.toLowerCase()} aesthetic, 8k render, vertical 9:16 aspect ratio` },\n      { order: 2, type: 'body', timeRange: '3-12s', narrationText: 'O StudioOps conecta roteiristas inteligentes e renderização na nuvem para entregar seus vídeos prontos em segundos.', imagePromptEnglish: `Futuristic holographic workflow animating scenes dynamically, ${style.toLowerCase()} style, cinematic volumetric lighting, 8k, 9:16 aspect ratio` },\n      { order: 3, type: 'cta', timeRange: '12-15s', narrationText: 'Comente TESTAR para receber o acesso antecipado agora!', imagePromptEnglish: `Silhouette of a creator pointing to comments with vibrant neon glow, ${style.toLowerCase()} aesthetic, 8k, vertical 9:16` }\n    ],\n    fullNarration: 'Você ainda perde horas editando um único vídeo? O StudioOps conecta roteiristas inteligentes e renderização na nuvem para entregar seus vídeos prontos em segundos. Comente TESTAR para receber o acesso antecipado agora!'\n  };\n}\nconst growth = {\n  title: `POV: Quando você descobre ${topic}`.slice(0, 65),\n  description: `Assista até o final para entender como viralizar com ${topic}. Comente QUERO! #viral`,\n  hashtags: ['#fyp', '#viral', '#tecnologia', '#ia', '#studioops', '#criatividade'],\n  callToActionQuestion: 'Você usaria essa automação no seu canal?'\n};\nreturn [{ json: { success: true, script, growth, mediaPrompts: script.scenes.map(s => ({ order: s.order, timeRange: s.timeRange, narration: s.narrationText, prompt: s.imagePromptEnglish })) } }];"
       },
       "id": "master-consolidate-script",
       "name": "Consolidate Script & Growth",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [660, 360]
+      "position": [960, 440]
     },
     {
       "parameters": {
@@ -125,7 +229,20 @@
       "name": "Respond Script",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [880, 360]
+      "position": [1160, 440]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dispatch-media",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "master-webhook-media",
+      "name": "Webhook - Media",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [160, 660]
     },
     {
       "parameters": {
@@ -135,7 +252,7 @@
       "name": "Handle Media Dispatch",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [440, 560]
+      "position": [440, 660]
     },
     {
       "parameters": {
@@ -146,7 +263,20 @@
       "name": "Respond Media",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [660, 560]
+      "position": [660, 660]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "metrics-insights",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "master-webhook-metrics",
+      "name": "Webhook - Metrics",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [160, 860]
     },
     {
       "parameters": {
@@ -156,7 +286,7 @@
       "name": "Handle Metrics",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [440, 760]
+      "position": [440, 860]
     },
     {
       "parameters": {
@@ -167,20 +297,64 @@
       "name": "Respond Metrics",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [660, 760]
+      "position": [660, 860]
     }
   ],
   "connections": {
-    "Webhook - Trends": { "main": [[{ "node": "Ollama - Coolhunter", "type": "main", "index": 0 }]] },
-    "Ollama - Coolhunter": { "main": [[{ "node": "Sanitize Trends", "type": "main", "index": 0 }]] },
-    "Sanitize Trends": { "main": [[{ "node": "Respond Trends", "type": "main", "index": 0 }]] },
-    "Webhook - Script": { "main": [[{ "node": "Ollama - Roteirista", "type": "main", "index": 0 }]] },
-    "Ollama - Roteirista": { "main": [[{ "node": "Consolidate Script & Growth", "type": "main", "index": 0 }]] },
-    "Consolidate Script & Growth": { "main": [[{ "node": "Respond Script", "type": "main", "index": 0 }]] },
-    "Webhook - Media": { "main": [[{ "node": "Handle Media Dispatch", "type": "main", "index": 0 }]] },
-    "Handle Media Dispatch": { "main": [[{ "node": "Respond Media", "type": "main", "index": 0 }]] },
-    "Webhook - Metrics": { "main": [[{ "node": "Handle Metrics", "type": "main", "index": 0 }]] },
-    "Handle Metrics": { "main": [[{ "node": "Respond Metrics", "type": "main", "index": 0 }]] }
+    "Webhook - Trends": {
+      "main": [[{ "node": "Router - Trends Provider", "type": "main", "index": 0 }]]
+    },
+    "Router - Trends Provider": {
+      "main": [
+        [{ "node": "Toqan - Coolhunter", "type": "main", "index": 0 }],
+        [{ "node": "Ollama - Coolhunter", "type": "main", "index": 0 }]
+      ]
+    },
+    "Toqan - Coolhunter": {
+      "main": [[{ "node": "Adapter - Toqan Trends", "type": "main", "index": 0 }]]
+    },
+    "Adapter - Toqan Trends": {
+      "main": [[{ "node": "Sanitize Trends", "type": "main", "index": 0 }]]
+    },
+    "Ollama - Coolhunter": {
+      "main": [[{ "node": "Sanitize Trends", "type": "main", "index": 0 }]]
+    },
+    "Sanitize Trends": {
+      "main": [[{ "node": "Respond Trends", "type": "main", "index": 0 }]]
+    },
+    "Webhook - Script": {
+      "main": [[{ "node": "Router - Script Provider", "type": "main", "index": 0 }]]
+    },
+    "Router - Script Provider": {
+      "main": [
+        [{ "node": "Toqan - Roteirista", "type": "main", "index": 0 }],
+        [{ "node": "Ollama - Roteirista", "type": "main", "index": 0 }]
+      ]
+    },
+    "Toqan - Roteirista": {
+      "main": [[{ "node": "Adapter - Toqan Script", "type": "main", "index": 0 }]]
+    },
+    "Adapter - Toqan Script": {
+      "main": [[{ "node": "Consolidate Script & Growth", "type": "main", "index": 0 }]]
+    },
+    "Ollama - Roteirista": {
+      "main": [[{ "node": "Consolidate Script & Growth", "type": "main", "index": 0 }]]
+    },
+    "Consolidate Script & Growth": {
+      "main": [[{ "node": "Respond Script", "type": "main", "index": 0 }]]
+    },
+    "Webhook - Media": {
+      "main": [[{ "node": "Handle Media Dispatch", "type": "main", "index": 0 }]]
+    },
+    "Handle Media Dispatch": {
+      "main": [[{ "node": "Respond Media", "type": "main", "index": 0 }]]
+    },
+    "Webhook - Metrics": {
+      "main": [[{ "node": "Handle Metrics", "type": "main", "index": 0 }]]
+    },
+    "Handle Metrics": {
+      "main": [[{ "node": "Respond Metrics", "type": "main", "index": 0 }]]
+    }
   },
   "active": true
 }

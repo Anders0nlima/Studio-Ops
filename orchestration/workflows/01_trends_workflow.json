@@ -1,5 +1,5 @@
 {
-  "name": "StudioOps - 01 Trend Discovery (Coolhunter)",
+  "name": "StudioOps - 01 Trend Discovery (Coolhunter with Toqan Adapter)",
   "nodes": [
     {
       "parameters": {
@@ -12,7 +12,83 @@
       "name": "Webhook - /webhook/trends",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [220, 300]
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-toqan-provider",
+              "leftValue": "={{ ($env.AI_PROVIDER || 'ollama').toLowerCase().trim() }}",
+              "rightValue": "toqan",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "router-trends-provider",
+      "name": "Router - AI Provider (Ollama vs Toqan)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TOQAN_API_URL || 'https://toqan-gateway.internal.ifood.com.br/v1/chat/completions' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + ($env.TOQAN_API_KEY || '') }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Requester-App",
+              "value": "StudioOps"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $env.TOQAN_MODEL || 'claude-3-5-sonnet' }}\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Você é o Coolhunter Agent, especialista em tendências de TikTok. Responda ESTRITAMENTE em JSON seguindo o schema: {\\\"trends\\\": [{\\\"id\\\": \\\"slug\\\", \\\"tag\\\": \\\"#Tag\\\", \\\"topic\\\": \\\"Tema\\\", \\\"growth\\\": \\\"+185%\\\", \\\"color\\\": \\\"cyan\\\", \\\"insight\\\": \\\"Frase curta\\\", \\\"visualStyleRecommended\\\": \\\"Cyberpunk\\\", \\\"retentionScore\\\": 88, \\\"hookIdea\\\": \\\"Gancho\\\"}]}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Gere 6 tendências virais para hoje no TikTok cobrindo tecnologia, inteligência artificial, estilo de vida, finanças e produtividade.\"\n    }\n  ],\n  \"response_format\": { \"type\": \"json_object\" },\n  \"temperature\": 0.7\n}",
+        "options": {
+          "timeout": 45000
+        }
+      },
+      "id": "http-toqan-coolhunter",
+      "name": "HTTP - Call Toqan Coolhunter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nlet rawContent = '';\n\nif (item.choices && item.choices.length > 0 && item.choices[0].message) {\n  rawContent = item.choices[0].message.content;\n} else if (item.response) {\n  rawContent = item.response;\n} else if (item.content) {\n  rawContent = item.content;\n} else {\n  rawContent = JSON.stringify(item);\n}\n\nreturn [{\n  json: {\n    source: 'toqan',\n    provider: 'toqan-gateway',\n    response: rawContent\n  }\n}];"
+      },
+      "id": "code-toqan-adapter-trends",
+      "name": "Code - Toqan Adapter (Trends)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 200]
     },
     {
       "parameters": {
@@ -29,18 +105,18 @@
       "name": "HTTP - Call Ollama Coolhunter",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [440, 300],
+      "position": [660, 420],
       "continueOnFail": true
     },
     {
       "parameters": {
-        "jsCode": "const fallbackTrends = [\n  {\n    id: 'trend-1',\n    tag: '#CyberpunkVibe',\n    topic: 'Estética Neon e Alta Velocidade',\n    growth: '+245%',\n    color: 'cyan',\n    insight: 'Estética neon com cortes rápidos está dominando o feed noturno do TikTok.',\n    visualStyleRecommended: 'Cyberpunk',\n    retentionScore: 92,\n    hookIdea: 'Você ainda perde quatro horas editando um único vídeo?'\n  },\n  {\n    id: 'trend-2',\n    tag: '#SoftLifeReset',\n    topic: 'Produtividade Sem Burnout',\n    growth: '+189%',\n    color: 'pink',\n    insight: 'Conteúdos de autocuidado têm 2,4x mais salvamentos nesta semana.',\n    visualStyleRecommended: 'Cinematic',\n    retentionScore: 88,\n    hookIdea: 'A rotina matinal que ninguém te conta para render 3x mais.'\n  },\n  {\n    id: 'trend-3',\n    tag: '#AIExplained',\n    topic: 'Inteligência Artificial em 15 Segundos',\n    growth: '+164%',\n    color: 'purple',\n    insight: 'Vídeos que simplificam IA em 15 segundos geram retenção altíssima.',\n    visualStyleRecommended: 'Pixar 3D',\n    retentionScore: 85,\n    hookIdea: 'Essa ferramenta de IA vai substituir o trabalho de 10 pessoas.'\n  },\n  {\n    id: 'trend-4',\n    tag: '#StreetFoodTour',\n    topic: 'Culinária Rápida e Crocante',\n    growth: '+132%',\n    color: 'amber',\n    insight: 'POVs autênticos e áudio ambiente elevam a retenção até o final.',\n    visualStyleRecommended: 'Cinematic',\n    retentionScore: 81,\n    hookIdea: 'Nunca mais erre o ponto do hambúrguer artesanal.'\n  }\n];\n\ntry {\n  const rawResp = $input.first().json.response;\n  if (rawResp) {\n    const parsed = typeof rawResp === 'string' ? JSON.parse(rawResp) : rawResp;\n    if (parsed.trends && Array.isArray(parsed.trends) && parsed.trends.length > 0) {\n      return [{ json: { success: true, source: 'ollama', trends: parsed.trends } }];\n    }\n  }\n} catch (e) {}\n\nreturn [{ json: { success: true, source: 'fallback_resilience', trends: fallbackTrends } }];"
+        "jsCode": "const fallbackTrends = [\n  {\n    id: 'trend-1',\n    tag: '#CyberpunkVibe',\n    topic: 'Estética Neon e Alta Velocidade',\n    growth: '+245%',\n    color: 'cyan',\n    insight: 'Estética neon com cortes rápidos está dominando o feed noturno do TikTok.',\n    visualStyleRecommended: 'Cyberpunk',\n    retentionScore: 92,\n    hookIdea: 'Você ainda perde quatro horas editando um único vídeo?'\n  },\n  {\n    id: 'trend-2',\n    tag: '#SoftLifeReset',\n    topic: 'Produtividade Sem Burnout',\n    growth: '+189%',\n    color: 'pink',\n    insight: 'Conteúdos de autocuidado têm 2,4x mais salvamentos nesta semana.',\n    visualStyleRecommended: 'Cinematic',\n    retentionScore: 88,\n    hookIdea: 'A rotina matinal que ninguém te conta para render 3x mais.'\n  },\n  {\n    id: 'trend-3',\n    tag: '#AIExplained',\n    topic: 'Inteligência Artificial em 15 Segundos',\n    growth: '+164%',\n    color: 'purple',\n    insight: 'Vídeos que simplificam IA em 15 segundos geram retenção altíssima.',\n    visualStyleRecommended: 'Pixar 3D',\n    retentionScore: 85,\n    hookIdea: 'Essa ferramenta de IA vai substituir o trabalho de 10 pessoas.'\n  },\n  {\n    id: 'trend-4',\n    tag: '#StreetFoodTour',\n    topic: 'Culinária Rápida e Crocante',\n    growth: '+132%',\n    color: 'amber',\n    insight: 'POVs autênticos e áudio ambiente elevam a retenção até o final.',\n    visualStyleRecommended: 'Cinematic',\n    retentionScore: 81,\n    hookIdea: 'Nunca mais erre o ponto do hambúrguer artesanal.'\n  }\n];\n\ntry {\n  const inputObj = $input.first().json;\n  const rawResp = inputObj.response;\n  const sourceProvider = inputObj.source || 'ollama';\n  if (rawResp) {\n    let parsed = typeof rawResp === 'string' ? JSON.parse(rawResp.replace(/^```json\\s*|\\s*```$/g, '')) : rawResp;\n    if (parsed.trends && Array.isArray(parsed.trends) && parsed.trends.length > 0) {\n      return [{ json: { success: true, source: sourceProvider, trends: parsed.trends } }];\n    }\n  }\n} catch (e) {}\n\nreturn [{ json: { success: true, source: 'fallback_resilience', trends: fallbackTrends } }];"
       },
       "id": "code-sanitize-trends",
       "name": "Code - Sanitize & Fallback",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [660, 300]
+      "position": [1100, 300]
     },
     {
       "parameters": {
@@ -52,7 +128,7 @@
       "name": "Respond - Send Trends to Frontend",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [880, 300]
+      "position": [1320, 300]
     }
   ],
   "connections": {
@@ -60,7 +136,47 @@
       "main": [
         [
           {
+            "node": "Router - AI Provider (Ollama vs Toqan)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router - AI Provider (Ollama vs Toqan)": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Call Toqan Coolhunter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "HTTP - Call Ollama Coolhunter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Call Toqan Coolhunter": {
+      "main": [
+        [
+          {
+            "node": "Code - Toqan Adapter (Trends)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Toqan Adapter (Trends)": {
+      "main": [
+        [
+          {
+            "node": "Code - Sanitize & Fallback",
             "type": "main",
             "index": 0
           }
