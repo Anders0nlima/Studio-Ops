@@ -1,0 +1,144 @@
+{
+  "name": "StudioOps - 02 Script & Media Generator (Roteirista + Growth)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-script",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-script-in",
+      "name": "Webhook - /webhook/generate-script",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama3.2:3b\",\n  \"system\": \"Você é o Roteirista & Engenheiro de Prompt de vídeos curtos. Crie um roteiro de 15 segundos em 3 blocos: hook (0-3s, max 14 palavras), body (3-12s, 15-25 palavras) e cta (12-15s, 4-10 palavras). Para cada cena, crie um prompt em inglês para imagem (SDXL) com iluminação dramática e vertical 9:16 aspect ratio. Responda ESTRITAMENTE em JSON seguindo o schema: {\\\"topic\\\": \\\"...\\\", \\\"style\\\": \\\"...\\\", \\\"targetDuration\\\": \\\"15s\\\", \\\"totalWordCount\\\": 38, \\\"scenes\\\": [{\\\"order\\\": 1, \\\"type\\\": \\\"hook\\\", \\\"timeRange\\\": \\\"0-3s\\\", \\\"narrationText\\\": \\\"...\\\", \\\"imagePromptEnglish\\\": \\\"... vertical 9:16 aspect ratio\\\"}, {\\\"order\\\": 2, \\\"type\\\": \\\"body\\\", \\\"timeRange\\\": \\\"3-12s\\\", \\\"narrationText\\\": \\\"...\\\", \\\"imagePromptEnglish\\\": \\\"... 9:16\\\"}, {\\\"order\\\": 3, \\\"type\\\": \\\"cta\\\", \\\"timeRange\\\": \\\"12-15s\\\", \\\"narrationText\\\": \\\"...\\\", \\\"imagePromptEnglish\\\": \\\"... 9:16\\\"}], \\\"fullNarration\\\": \\\"...\\\"}\",\n  \"prompt\": \"{{ 'Tema: ' + ($json.body.topic || 'Como a IA gera vídeos virais em segundos') + '. Estilo visual: ' + ($json.body.style || 'Cyberpunk') }}\",\n  \"format\": \"json\",\n  \"stream\": false,\n  \"options\": {\n    \"temperature\": 0.7\n  }\n}",
+        "options": {
+          "timeout": 45000
+        }
+      },
+      "id": "http-ollama-roteirista",
+      "name": "HTTP - Call Ollama Roteirista",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $('Webhook - /webhook/generate-script').first().json.body || {};\nconst topic = inputData.topic || 'Como a IA cria vídeos em segundos';\nconst style = inputData.style || 'Cyberpunk';\n\nlet scriptData = null;\ntry {\n  const raw = $input.first().json.response;\n  if (raw) {\n    scriptData = typeof raw === 'string' ? JSON.parse(raw) : raw;\n  }\n} catch (e) {}\n\nif (!scriptData || !scriptData.scenes || scriptData.scenes.length < 3) {\n  scriptData = {\n    topic: topic,\n    style: style,\n    targetDuration: '15s',\n    totalWordCount: 35,\n    scenes: [\n      {\n        order: 1,\n        type: 'hook',\n        timeRange: '0-3s',\n        narrationText: 'Você ainda gasta quatro horas editando um único vídeo?',\n        imagePromptEnglish: `Dramatic high contrast opening visual for ${topic}, glowing neon elements, ${style.toLowerCase()} aesthetic, 8k render, vertical 9:16 aspect ratio`\n      },\n      {\n        order: 2,\n        type: 'body',\n        timeRange: '3-12s',\n        narrationText: 'O StudioOps conecta roteiristas inteligentes e renderização na nuvem para entregar seus vídeos prontos em segundos.',\n        imagePromptEnglish: `Futuristic holographic workflow animating scenes dynamically, ${style.toLowerCase()} style, cinematic volumetric lighting, 8k, 9:16 aspect ratio`\n      },\n      {\n        order: 3,\n        type: 'cta',\n        timeRange: '12-15s',\n        narrationText: 'Comente TESTAR para receber o acesso antecipado agora!',\n        imagePromptEnglish: `Silhouette of a creator pointing to comments with vibrant neon glow, ${style.toLowerCase()} aesthetic, 8k, vertical 9:16`\n      }\n    ],\n    fullNarration: 'Você ainda gasta quatro horas editando um único vídeo? O StudioOps conecta roteiristas inteligentes e renderização na nuvem para entregar seus vídeos prontos em segundos. Comente TESTAR para receber o acesso antecipado agora!'\n  };\n}\n\nreturn [{ json: { inputData, script: scriptData } }];"
+      },
+      "id": "code-validate-script",
+      "name": "Code - Validate Script & Fallback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama3.2:3b\",\n  \"system\": \"Você é o Growth Hacker Agent. Gere títulos virais (max 65 chars), legendas que forçam comentários e 6 hashtags estratégicas. Responda ESTRITAMENTE em JSON: {\\\"title\\\": \\\"...\\\", \\\"description\\\": \\\"...\\\", \\\"callToActionQuestion\\\": \\\"...\\\", \\\"hashtags\\\": [\\\"#fyp\\\", \\\"#viral\\\", \\\"#ia\\\", \\\"#tecnologia\\\"], \\\"suggestedAudioVibe\\\": \\\"...\\\", \\\"retentionStrategyTip\\\": \\\"...\\\"}\",\n  \"prompt\": \"{{ 'Crie os metadados virais para este roteiro: ' + $json.script.fullNarration }}\",\n  \"format\": \"json\",\n  \"stream\": false,\n  \"options\": {\n    \"temperature\": 0.7\n  }\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "http-ollama-growth",
+      "name": "HTTP - Call Ollama Growth Hacker",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const script = $('Code - Validate Script & Fallback').first().json.script;\nlet growth = null;\n\ntry {\n  const raw = $input.first().json.response;\n  if (raw) {\n    growth = typeof raw === 'string' ? JSON.parse(raw) : raw;\n  }\n} catch (e) {}\n\nif (!growth || !growth.title) {\n  growth = {\n    title: `POV: Quando você descobre ${script.topic}`.slice(0, 65),\n    description: `Descubra o segredo que criadores usam para viralizar com ${script.topic}. Comente sua opinião abaixo! #viral`,\n    callToActionQuestion: 'Você usaria isso no seu canal?',\n    hashtags: ['#fyp', '#viral', '#tecnologia', '#inteligenciaartificial', '#studioops', '#criatividade'],\n    suggestedAudioVibe: 'Cyberpunk Synthwave 120BPM trending bass',\n    retentionStrategyTip: 'Fixe o primeiro comentário respondendo sua própria pergunta para estimular o debate.'\n  };\n}\n\nreturn [{\n  json: {\n    success: true,\n    script: script,\n    growth: growth,\n    mediaPrompts: script.scenes.map(s => ({\n      order: s.order,\n      timeRange: s.timeRange,\n      narration: s.narrationText,\n      prompt: s.imagePromptEnglish\n    }))\n  }\n}];"
+      },
+      "id": "code-consolidate-payload",
+      "name": "Code - Consolidate Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "respond-script",
+      "name": "Respond - Send Script Payload",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1300, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - /webhook/generate-script": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Call Ollama Roteirista",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Call Ollama Roteirista": {
+      "main": [
+        [
+          {
+            "node": "Code - Validate Script & Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Validate Script & Fallback": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Call Ollama Growth Hacker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Call Ollama Growth Hacker": {
+      "main": [
+        [
+          {
+            "node": "Code - Consolidate Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Consolidate Payload": {
+      "main": [
+        [
+          {
+            "node": "Respond - Send Script Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true
+}
