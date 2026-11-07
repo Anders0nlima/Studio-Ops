@@ -187,7 +187,10 @@ export async function dispatchMediaRenderApi(
 
       const res = await fetch(`${url}/render`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(10000),
       })
@@ -227,16 +230,41 @@ export async function pollJobStatusApi(
     try {
       const res = await fetch(`${url}/jobs/${jobId}`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(5000),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        signal: AbortSignal.timeout(6000),
       })
 
       if (res.ok) {
         const data = await res.json()
+        let resolvedVideoUrl: string | undefined = data.videoUrl
+
+        if (resolvedVideoUrl) {
+          // If the backend returned an internal address like http://127.0.0.1:8000/video/...
+          if (
+            resolvedVideoUrl.includes('127.0.0.1') ||
+            resolvedVideoUrl.includes('localhost') ||
+            resolvedVideoUrl.startsWith('/video/')
+          ) {
+            const filename = resolvedVideoUrl.split('/video/').pop()
+            resolvedVideoUrl = `${url}/video/${filename}`
+          }
+
+          // Ensure ngrok query parameter is attached to bypass warning page on native media tags
+          if (resolvedVideoUrl.includes('ngrok')) {
+            const separator = resolvedVideoUrl.includes('?') ? '&' : '?'
+            if (!resolvedVideoUrl.includes('ngrok-skip-browser-warning')) {
+              resolvedVideoUrl = `${resolvedVideoUrl}${separator}ngrok-skip-browser-warning=true`
+            }
+          }
+        }
+
         return {
           status: data.status || 'processing',
           progress: data.progress || 50,
-          videoUrl: data.videoUrl,
+          videoUrl: resolvedVideoUrl,
           error: data.error,
         }
       }

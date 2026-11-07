@@ -51,6 +51,9 @@ export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
         const cleanUrl = config.colabUrl.replace(/\/$/, '')
         const res = await fetch(`${cleanUrl}/health`, {
           method: 'GET',
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+          },
           signal: AbortSignal.timeout(6000),
         })
         if (res.ok) {

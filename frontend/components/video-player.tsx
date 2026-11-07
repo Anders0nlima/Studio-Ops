@@ -14,7 +14,10 @@ import {
   Share2,
   Music,
   Sparkles,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react'
+import { getStoredConfig } from '@/services/api'
 
 interface VideoPlayerProps {
   videoUrl?: string
@@ -34,6 +37,10 @@ export function VideoPlayer({
   onDownload,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const [blobSrc, setBlobSrc] = useState<string | null>(null)
+  const [isLoadingMedia, setIsLoadingMedia] = useState(false)
+  const [mediaError, setMediaError] = useState<string | null>(null)
+
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -42,14 +49,76 @@ export function VideoPlayer({
   const [isLiked, setIsLiked] = useState(false)
   const [isBookmarked, setIsBookmarked] = useState(false)
 
+  // Fetch media as blob with ngrok-skip-browser-warning to avoid HTML splash page
   useEffect(() => {
-    if (videoUrl && videoRef.current) {
+    let active = true
+    let createdUrl: string | null = null
+
+    if (!videoUrl) {
+      setBlobSrc(null)
+      return
+    }
+
+    let effectiveUrl = videoUrl
+    // Safeguard: normalize internal 127.0.0.1 or localhost address to public Colab URL
+    if (
+      effectiveUrl.includes('127.0.0.1:8000') ||
+      effectiveUrl.includes('localhost:8000') ||
+      effectiveUrl.startsWith('/video/')
+    ) {
+      const cfg = getStoredConfig()
+      if (cfg.colabUrl) {
+        const fn = effectiveUrl.split('/video/').pop()
+        effectiveUrl = `${cfg.colabUrl.replace(/\/$/, '')}/video/${fn}`
+      }
+    }
+
+    setIsLoadingMedia(true)
+    setMediaError(null)
+
+    fetch(effectiveUrl, {
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+      },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+        return res.blob()
+      })
+      .then((blob) => {
+        if (!active) return
+        createdUrl = URL.createObjectURL(blob)
+        setBlobSrc(createdUrl)
+        setIsLoadingMedia(false)
+      })
+      .catch((err) => {
+        console.warn('Could not fetch video as blob, falling back to direct stream:', err)
+        if (!active) return
+        const sep = effectiveUrl.includes('?') ? '&' : '?'
+        const finalUrl =
+          effectiveUrl.includes('ngrok') && !effectiveUrl.includes('ngrok-skip')
+            ? `${effectiveUrl}${sep}ngrok-skip-browser-warning=true`
+            : effectiveUrl
+        setBlobSrc(finalUrl)
+        setIsLoadingMedia(false)
+      })
+
+    return () => {
+      active = false
+      if (createdUrl) {
+        URL.revokeObjectURL(createdUrl)
+      }
+    }
+  }, [videoUrl])
+
+  useEffect(() => {
+    if (blobSrc && videoRef.current) {
       videoRef.current.currentTime = 0
       videoRef.current
         .play()
         .then(() => setIsPlaying(true))
         .catch(() => {
-          // Autoplay policy might require mute
+          // Autoplay policy fallback: mute and play
           if (videoRef.current) {
             videoRef.current.muted = true
             setIsMuted(true)
@@ -57,7 +126,7 @@ export function VideoPlayer({
           }
         })
     }
-  }, [videoUrl])
+  }, [blobSrc])
 
   const togglePlay = () => {
     if (!videoRef.current) return
@@ -109,9 +178,10 @@ export function VideoPlayer({
       onDownload()
       return
     }
-    if (!videoUrl) return
+    const targetUrl = blobSrc || videoUrl
+    if (!targetUrl) return
     const a = document.createElement('a')
-    a.href = videoUrl
+    a.href = targetUrl
     a.download = `studioops-${Date.now()}.mp4`
     a.target = '_blank'
     document.body.appendChild(a)
@@ -135,21 +205,57 @@ export function VideoPlayer({
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-black select-none">
+      {/* Loading Indicator while Buffering MP4 */}
+      {isLoadingMedia && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm text-white">
+          <Loader2 className="h-8 w-8 animate-spin text-[#00f2fe]" />
+          <strong className="mt-3 text-xs font-semibold">Carregando vídeo da nuvem...</strong>
+          <span className="text-[10px] text-white/50">Sincronizando áudio e frames 9:16</span>
+        </div>
+      )}
+
       {/* Video Element */}
-      <video
-        ref={videoRef}
-        src={videoUrl}
-        poster={posterUrl}
-        playsInline
-        loop
-        className="h-full w-full object-cover"
-        onClick={togglePlay}
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
-      />
+      {blobSrc && (
+        <video
+          ref={videoRef}
+          src={blobSrc}
+          poster={posterUrl}
+          playsInline
+          loop
+          className="h-full w-full object-cover"
+          onClick={togglePlay}
+          onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={handleLoadedMetadata}
+          onError={(e) => {
+            console.error('Video error:', e)
+            setMediaError('Erro ao carregar o vídeo MP4.')
+          }}
+        />
+      )}
+
+      {/* Error Overlay if any */}
+      {mediaError && !isLoadingMedia && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/90 p-4 text-center text-white">
+          <AlertCircle className="h-8 w-8 text-red-400 mb-2" />
+          <strong className="text-xs font-semibold text-red-300">{mediaError}</strong>
+          <p className="text-[11px] text-white/60 mt-1 mb-3">
+            O link do vídeo gerado pelo servidor pode precisar ser atualizado.
+          </p>
+          <button
+            onClick={() => {
+              setBlobSrc(null)
+              setIsLoadingMedia(true)
+              setTimeout(() => setIsLoadingMedia(false), 500)
+            }}
+            className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
+          >
+            <RotateCcw className="h-3.5 w-3.5" /> Tentar recarregar
+          </button>
+        </div>
+      )}
 
       {/* Play/Pause Overlay Flash */}
-      {!isPlaying && (
+      {!isPlaying && !isLoadingMedia && !mediaError && (
         <button
           onClick={togglePlay}
           aria-label="Reproduzir vídeo"

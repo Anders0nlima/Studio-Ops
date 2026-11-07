@@ -102,8 +102,9 @@ async def process_video_job(job_id: str, req: RenderRequest, base_url: str):
             total_duration=15.0
         )
 
-        # Step 4: Completion
-        video_url = f"{base_url}/video/{video_filename}"
+        # Step 4: Completion (prefer public tunnel url if set in env or request)
+        target_base = os.environ.get("PUBLIC_URL") or base_url
+        video_url = f"{target_base}/video/{video_filename}"
         JOBS[job_id]["status"] = "completed"
         JOBS[job_id]["progress"] = 100
         JOBS[job_id]["statusMessage"] = "Vídeo 1080x1920 pronto para publicação no TikTok!"
