@@ -145,9 +145,14 @@ export async function generateScriptApi(
     fullNarration: `Você ainda perde horas criando vídeos sobre ${topic}? O StudioOps automatiza roteiro, imagens de alta resolução e áudio na nuvem com um único clique. Comente TESTAR para receber acesso imediato!`,
   }
 
+  // Clean up topic for clean display in title/description if it came from trend selection
+  const cleanTopic = topic.includes('Tema viral:')
+    ? topic.replace(/Tema viral:\s*/i, '').split('—')[0].trim()
+    : topic
+
   const fallbackGrowth: GrowthMetadata = {
-    title: `POV: Quando você descobre como viralizar com ${topic}`.slice(0, 65),
-    description: `Descubra a tecnologia que está transformando criadores em máquinas virais com ${topic}. Comente QUERO! #viral`,
+    title: `POV: Quando você descobre como viralizar com ${cleanTopic}`,
+    description: `Descubra a tecnologia que está transformando criadores em máquinas virais com ${cleanTopic}. Comente QUERO para ver o tutorial completo! #viral`,
     hashtags: ['#fyp', '#viral', '#tecnologia', '#inteligenciaartificial', '#studioops', '#criatividade'],
     callToActionQuestion: 'Você usaria essa automação no seu canal?',
     suggestedAudioVibe: 'Dark Synthwave 120BPM trending bass',

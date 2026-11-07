@@ -372,59 +372,59 @@ export function VideoPlayer({
         )}
       </div>
 
-      {/* External Action Controls Bar (Located OUTSIDE the phone for flawless UX) */}
-      <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-neutral-900/90 px-3 py-2 shadow-lg backdrop-blur-md">
-        {/* Play/Pause */}
-        <button
-          onClick={togglePlay}
-          title={isPlaying ? 'Pausar' : 'Reproduzir'}
-          className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-white transition-colors hover:bg-white/15"
-        >
-          {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-white" />}
-        </button>
+      {/* External Action Controls Bar (Matches phone width 230px exactly) */}
+      <div className="flex flex-col gap-2 w-full max-w-[230px] mt-1">
+        {/* Row 1: 4 Equal Quick Icon Controls */}
+        <div className="grid grid-cols-4 gap-1.5 rounded-xl border border-white/10 bg-neutral-900/90 p-1.5 shadow-md">
+          {/* Play/Pause */}
+          <button
+            onClick={togglePlay}
+            title={isPlaying ? 'Pausar' : 'Reproduzir'}
+            className="flex h-8 items-center justify-center rounded-lg bg-white/5 text-white transition-colors hover:bg-white/15"
+          >
+            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-white" />}
+          </button>
 
-        {/* Replay */}
-        <button
-          onClick={handleReplay}
-          title="Reiniciar vídeo"
-          className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-white transition-colors hover:bg-white/15"
-        >
-          <RotateCcw className="h-4 w-4" />
-        </button>
+          {/* Replay */}
+          <button
+            onClick={handleReplay}
+            title="Reiniciar vídeo"
+            className="flex h-8 items-center justify-center rounded-lg bg-white/5 text-white transition-colors hover:bg-white/15"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </button>
 
-        {/* Mute/Unmute */}
-        <button
-          onClick={toggleMute}
-          title={isMuted ? 'Ativar som' : 'Silenciar'}
-          className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-white transition-colors hover:bg-white/15"
-        >
-          {isMuted ? <VolumeX className="h-4 w-4 text-amber-400" /> : <Volume2 className="h-4 w-4 text-[#00f2fe]" />}
-        </button>
+          {/* Mute/Unmute */}
+          <button
+            onClick={toggleMute}
+            title={isMuted ? 'Ativar som' : 'Silenciar'}
+            className="flex h-8 items-center justify-center rounded-lg bg-white/5 text-white transition-colors hover:bg-white/15"
+          >
+            {isMuted ? <VolumeX className="h-4 w-4 text-amber-400" /> : <Volume2 className="h-4 w-4 text-[#00f2fe]" />}
+          </button>
 
-        <div className="h-4 w-[1px] bg-white/10 mx-0.5" />
+          {/* Toggle TikTok Mockup vs Clean View */}
+          <button
+            onClick={() => setShowOverlay(!showOverlay)}
+            title={showOverlay ? 'Modo Vídeo Limpo' : 'Interface TikTok'}
+            className={`flex h-8 items-center justify-center rounded-lg transition-colors ${
+              showOverlay
+                ? 'bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/40'
+                : 'bg-white/5 text-white/70 hover:bg-white/15'
+            }`}
+          >
+            {showOverlay ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
 
-        {/* Toggle TikTok Mockup vs Clean View */}
-        <button
-          onClick={() => setShowOverlay(!showOverlay)}
-          title={showOverlay ? 'Ocultar interface TikTok' : 'Mostrar interface TikTok'}
-          className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
-            showOverlay
-              ? 'bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/40'
-              : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
-          }`}
-        >
-          {showOverlay ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-          <span>{showOverlay ? 'Modo Limpo' : 'Interface TikTok'}</span>
-        </button>
-
-        {/* Download MP4 Button (Highlight) */}
+        {/* Row 2: Full-Width Prominent Download MP4 Button */}
         <button
           onClick={handleDownloadFile}
-          title="Baixar arquivo MP4 em alta definição"
-          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#fe0979] to-[#00f2fe] px-3 py-1.5 text-[11px] font-bold text-white shadow-md shadow-[#00f2fe]/20 transition-transform active:scale-95 hover:brightness-110 ml-1"
+          title="Baixar arquivo MP4 em alta definição (1080x1920)"
+          className="flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#fe0979] to-[#00f2fe] px-3 text-xs font-bold text-white shadow-lg shadow-[#00f2fe]/20 transition-transform active:scale-95 hover:brightness-110"
         >
-          <Download className="h-3.5 w-3.5" />
-          <span>Baixar MP4</span>
+          <Download className="h-4 w-4" />
+          <span>Baixar Vídeo MP4</span>
         </button>
       </div>
     </div>

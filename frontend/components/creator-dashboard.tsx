@@ -26,6 +26,8 @@ import {
   CheckCircle2,
   AlertCircle,
   ExternalLink,
+  Hash,
+  FileText,
 } from 'lucide-react'
 
 import {
@@ -724,16 +726,61 @@ function CopyField({
   copied: string
   onCopy: (key: string, text: string) => void
 }) {
+  const isCopied = copied === name
+  const isHashtags = name === 'hashtags'
+  const tags = isHashtags ? value.split(/\s+/).filter(Boolean) : []
+
   return (
-    <div className="copy-field">
-      <div className="field-top">
-        <label className="field-label">{label}</label>
-        <button className="copy-button" onClick={() => onCopy(name, value)}>
-          {copied === name ? <Check className="text-emerald-400" /> : <Clipboard />}
-          {copied === name ? 'Copiado!' : 'Copiar'}
+    <div className="group rounded-xl border border-white/10 bg-neutral-900/80 p-3.5 backdrop-blur-sm transition-all hover:border-[#00f2fe]/40 hover:bg-neutral-900 shadow-md">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[#00f2fe]/10 text-[#00f2fe]">
+            {isHashtags ? <Hash className="h-3 w-3" /> : name === 'title' ? <Sparkles className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+          </span>
+          <span className="text-xs font-bold text-white truncate">{label}</span>
+        </div>
+
+        <button
+          onClick={() => onCopy(name, value)}
+          className={`flex items-center gap-1.5 shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-all ${
+            isCopied
+              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm shadow-emerald-500/20'
+              : 'bg-white/5 text-white/80 border border-white/10 hover:bg-white/15 hover:text-white active:scale-95'
+          }`}
+        >
+          {isCopied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Clipboard className="h-3.5 w-3.5 text-[#00f2fe]" />}
+          <span>{isCopied ? 'Copiado!' : 'Copiar'}</span>
         </button>
       </div>
-      <div className="copy-value">{value}</div>
+
+      {isHashtags ? (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {tags.map((tag, idx) => (
+            <button
+              key={idx}
+              onClick={() => onCopy(`tag_${idx}`, tag)}
+              title="Clique para copiar esta hashtag"
+              className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors ${
+                copied === `tag_${idx}`
+                  ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
+                  : 'bg-white/5 text-[#00f2fe] border border-white/10 hover:bg-[#00f2fe]/10'
+              }`}
+            >
+              {tag.startsWith('#') ? tag : `#${tag}`}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-white/85 leading-relaxed break-words select-all">
+          {value}
+        </p>
+      )}
+
+      {/* Character count & tip footer */}
+      <div className="mt-2.5 flex items-center justify-between text-[10px] text-white/40 border-t border-white/5 pt-1.5">
+        <span>{name === 'title' ? 'Ideal para SEO TikTok' : name === 'description' ? 'Gatilho de Conversão' : 'Tags de Alto Tráfego'}</span>
+        <span className="font-mono">{value.length} caracteres</span>
+      </div>
     </div>
   )
 }
