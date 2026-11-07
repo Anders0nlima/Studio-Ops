@@ -8,6 +8,7 @@
     "dev": "npm --prefix frontend run dev",
     "build": "npm --prefix frontend run build",
     "test:agents": "python orchestration/scripts/test_agents_suite.py",
-    "test:webhooks": "python orchestration/scripts/test_n8n_webhooks.py"
+    "test:webhooks": "python orchestration/scripts/test_n8n_webhooks.py",
+    "test:media": "python colab/tests/test_media_pipeline.py"
   }
 }
