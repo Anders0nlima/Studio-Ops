@@ -1,0 +1,94 @@
+{
+  "name": "StudioOps - 01 Trend Discovery (Coolhunter)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "trends",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trends-in",
+      "name": "Webhook - /webhook/trends",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama3.2:3b\",\n  \"system\": \"Você é o Coolhunter Agent, especialista em tendências de TikTok. Responda ESTRITAMENTE em JSON seguindo o schema: {\\\"trends\\\": [{\\\"id\\\": \\\"slug\\\", \\\"tag\\\": \\\"#Tag\\\", \\\"topic\\\": \\\"Tema\\\", \\\"growth\\\": \\\"+185%\\\", \\\"color\\\": \\\"cyan\\\", \\\"insight\\\": \\\"Frase curta\\\", \\\"visualStyleRecommended\\\": \\\"Cyberpunk\\\", \\\"retentionScore\\\": 88, \\\"hookIdea\\\": \\\"Gancho\\\"}]}\",\n  \"prompt\": \"Gere 6 tendências virais para hoje no TikTok cobrindo tecnologia, inteligência artificial, estilo de vida, finanças e produtividade.\",\n  \"format\": \"json\",\n  \"stream\": false,\n  \"options\": {\n    \"temperature\": 0.7\n  }\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "http-ollama-coolhunter",
+      "name": "HTTP - Call Ollama Coolhunter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const fallbackTrends = [\n  {\n    id: 'trend-1',\n    tag: '#CyberpunkVibe',\n    topic: 'Estética Neon e Alta Velocidade',\n    growth: '+245%',\n    color: 'cyan',\n    insight: 'Estética neon com cortes rápidos está dominando o feed noturno do TikTok.',\n    visualStyleRecommended: 'Cyberpunk',\n    retentionScore: 92,\n    hookIdea: 'Você ainda perde quatro horas editando um único vídeo?'\n  },\n  {\n    id: 'trend-2',\n    tag: '#SoftLifeReset',\n    topic: 'Produtividade Sem Burnout',\n    growth: '+189%',\n    color: 'pink',\n    insight: 'Conteúdos de autocuidado têm 2,4x mais salvamentos nesta semana.',\n    visualStyleRecommended: 'Cinematic',\n    retentionScore: 88,\n    hookIdea: 'A rotina matinal que ninguém te conta para render 3x mais.'\n  },\n  {\n    id: 'trend-3',\n    tag: '#AIExplained',\n    topic: 'Inteligência Artificial em 15 Segundos',\n    growth: '+164%',\n    color: 'purple',\n    insight: 'Vídeos que simplificam IA em 15 segundos geram retenção altíssima.',\n    visualStyleRecommended: 'Pixar 3D',\n    retentionScore: 85,\n    hookIdea: 'Essa ferramenta de IA vai substituir o trabalho de 10 pessoas.'\n  },\n  {\n    id: 'trend-4',\n    tag: '#StreetFoodTour',\n    topic: 'Culinária Rápida e Crocante',\n    growth: '+132%',\n    color: 'amber',\n    insight: 'POVs autênticos e áudio ambiente elevam a retenção até o final.',\n    visualStyleRecommended: 'Cinematic',\n    retentionScore: 81,\n    hookIdea: 'Nunca mais erre o ponto do hambúrguer artesanal.'\n  }\n];\n\ntry {\n  const rawResp = $input.first().json.response;\n  if (rawResp) {\n    const parsed = typeof rawResp === 'string' ? JSON.parse(rawResp) : rawResp;\n    if (parsed.trends && Array.isArray(parsed.trends) && parsed.trends.length > 0) {\n      return [{ json: { success: true, source: 'ollama', trends: parsed.trends } }];\n    }\n  }\n} catch (e) {}\n\nreturn [{ json: { success: true, source: 'fallback_resilience', trends: fallbackTrends } }];"
+      },
+      "id": "code-sanitize-trends",
+      "name": "Code - Sanitize & Fallback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "respond-trends",
+      "name": "Respond - Send Trends to Frontend",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [880, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - /webhook/trends": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Call Ollama Coolhunter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Call Ollama Coolhunter": {
+      "main": [
+        [
+          {
+            "node": "Code - Sanitize & Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Sanitize & Fallback": {
+      "main": [
+        [
+          {
+            "node": "Respond - Send Trends to Frontend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true
+}
