@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useState, useEffect } from 'react'
+import React, { useRef, useState, useEffect, useMemo } from 'react'
 import {
   Play,
   Pause,
@@ -14,7 +14,6 @@ import {
   Share2,
   Music,
   Sparkles,
-  Loader2,
   AlertCircle,
 } from 'lucide-react'
 import { getStoredConfig } from '@/services/api'
@@ -26,6 +25,7 @@ interface VideoPlayerProps {
   narration?: string
   hashtags?: string[]
   onDownload?: () => void
+  onOpenSettings?: () => void
 }
 
 export function VideoPlayer({
@@ -35,12 +35,9 @@ export function VideoPlayer({
   narration = '',
   hashtags = ['#fyp', '#viral', '#studioops'],
   onDownload,
+  onOpenSettings,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const [blobSrc, setBlobSrc] = useState<string | null>(null)
-  const [isLoadingMedia, setIsLoadingMedia] = useState(false)
-  const [mediaError, setMediaError] = useState<string | null>(null)
-
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -48,71 +45,31 @@ export function VideoPlayer({
   const [currentTime, setCurrentTime] = useState(0)
   const [isLiked, setIsLiked] = useState(false)
   const [isBookmarked, setIsBookmarked] = useState(false)
+  const [mediaError, setMediaError] = useState<string | null>(null)
 
-  // Fetch media as blob with ngrok-skip-browser-warning to avoid HTML splash page
-  useEffect(() => {
-    let active = true
-    let createdUrl: string | null = null
-
-    if (!videoUrl) {
-      setBlobSrc(null)
-      return
+  // Resolve best streaming URL: prefer local Next.js proxy to guarantee 0 CORS & bypass Ngrok splash
+  const resolvedSrc = useMemo(() => {
+    if (!videoUrl) return null
+    if (videoUrl.startsWith('/api/') || videoUrl.startsWith('blob:')) {
+      return videoUrl
     }
 
-    let effectiveUrl = videoUrl
-    // Safeguard: normalize internal 127.0.0.1 or localhost address to public Colab URL
-    if (
-      effectiveUrl.includes('127.0.0.1:8000') ||
-      effectiveUrl.includes('localhost:8000') ||
-      effectiveUrl.startsWith('/video/')
-    ) {
-      const cfg = getStoredConfig()
-      if (cfg.colabUrl) {
-        const fn = effectiveUrl.split('/video/').pop()
-        effectiveUrl = `${cfg.colabUrl.replace(/\/$/, '')}/video/${fn}`
+    // If an external Ngrok/Colab or localhost URL was passed, route through our local Next.js proxy
+    const cfg = getStoredConfig()
+    const targetBase = cfg.colabUrl || ''
+    if (videoUrl.includes('/video/')) {
+      const filename = videoUrl.split('/video/').pop()?.split('?')[0]
+      if (filename && targetBase) {
+        return `/api/colab/video/${filename}?colabUrl=${encodeURIComponent(targetBase)}`
       }
     }
 
-    setIsLoadingMedia(true)
-    setMediaError(null)
-
-    fetch(effectiveUrl, {
-      headers: {
-        'ngrok-skip-browser-warning': 'true',
-      },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`)
-        return res.blob()
-      })
-      .then((blob) => {
-        if (!active) return
-        createdUrl = URL.createObjectURL(blob)
-        setBlobSrc(createdUrl)
-        setIsLoadingMedia(false)
-      })
-      .catch((err) => {
-        console.warn('Could not fetch video as blob, falling back to direct stream:', err)
-        if (!active) return
-        const sep = effectiveUrl.includes('?') ? '&' : '?'
-        const finalUrl =
-          effectiveUrl.includes('ngrok') && !effectiveUrl.includes('ngrok-skip')
-            ? `${effectiveUrl}${sep}ngrok-skip-browser-warning=true`
-            : effectiveUrl
-        setBlobSrc(finalUrl)
-        setIsLoadingMedia(false)
-      })
-
-    return () => {
-      active = false
-      if (createdUrl) {
-        URL.revokeObjectURL(createdUrl)
-      }
-    }
+    return videoUrl
   }, [videoUrl])
 
   useEffect(() => {
-    if (blobSrc && videoRef.current) {
+    setMediaError(null)
+    if (resolvedSrc && videoRef.current) {
       videoRef.current.currentTime = 0
       videoRef.current
         .play()
@@ -126,7 +83,7 @@ export function VideoPlayer({
           }
         })
     }
-  }, [blobSrc])
+  }, [resolvedSrc])
 
   const togglePlay = () => {
     if (!videoRef.current) return
@@ -156,6 +113,7 @@ export function VideoPlayer({
   const handleLoadedMetadata = () => {
     if (!videoRef.current) return
     setDuration(videoRef.current.duration || 15)
+    setMediaError(null)
   }
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -178,10 +136,10 @@ export function VideoPlayer({
       onDownload()
       return
     }
-    const targetUrl = blobSrc || videoUrl
-    if (!targetUrl) return
+    const downloadTarget = resolvedSrc || videoUrl
+    if (!downloadTarget) return
     const a = document.createElement('a')
-    a.href = targetUrl
+    a.href = downloadTarget
     a.download = `studioops-${Date.now()}.mp4`
     a.target = '_blank'
     document.body.appendChild(a)
@@ -205,20 +163,11 @@ export function VideoPlayer({
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-black select-none">
-      {/* Loading Indicator while Buffering MP4 */}
-      {isLoadingMedia && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm text-white">
-          <Loader2 className="h-8 w-8 animate-spin text-[#00f2fe]" />
-          <strong className="mt-3 text-xs font-semibold">Carregando vídeo da nuvem...</strong>
-          <span className="text-[10px] text-white/50">Sincronizando áudio e frames 9:16</span>
-        </div>
-      )}
-
       {/* Video Element */}
-      {blobSrc && (
+      {resolvedSrc && (
         <video
           ref={videoRef}
-          src={blobSrc}
+          src={resolvedSrc}
           poster={posterUrl}
           playsInline
           loop
@@ -227,35 +176,49 @@ export function VideoPlayer({
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onError={(e) => {
-            console.error('Video error:', e)
-            setMediaError('Erro ao carregar o vídeo MP4.')
+            console.warn('Video tag media playback warning:', e)
+            setMediaError('O túnel do Google Colab está offline ou o vídeo não pôde ser carregado.')
           }}
         />
       )}
 
-      {/* Error Overlay if any */}
-      {mediaError && !isLoadingMedia && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/90 p-4 text-center text-white">
-          <AlertCircle className="h-8 w-8 text-red-400 mb-2" />
-          <strong className="text-xs font-semibold text-red-300">{mediaError}</strong>
-          <p className="text-[11px] text-white/60 mt-1 mb-3">
-            O link do vídeo gerado pelo servidor pode precisar ser atualizado.
+      {/* Friendly Error Overlay if Colab tunnel is offline */}
+      {mediaError && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/90 p-5 text-center text-white">
+          <AlertCircle className="h-9 w-9 text-amber-400 mb-2" />
+          <strong className="text-xs font-semibold text-amber-300">
+            Conexão com o Colab Necessária
+          </strong>
+          <p className="text-[11px] text-white/70 mt-1 mb-4 leading-relaxed">
+            {mediaError}
           </p>
-          <button
-            onClick={() => {
-              setBlobSrc(null)
-              setIsLoadingMedia(true)
-              setTimeout(() => setIsLoadingMedia(false), 500)
-            }}
-            className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
-          >
-            <RotateCcw className="h-3.5 w-3.5" /> Tentar recarregar
-          </button>
+          <div className="flex flex-col gap-2 w-full max-w-[200px]">
+            <button
+              onClick={() => {
+                setMediaError(null)
+                if (videoRef.current) {
+                  videoRef.current.load()
+                  videoRef.current.play().catch(() => {})
+                }
+              }}
+              className="flex items-center justify-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Tentar recarregar
+            </button>
+            {onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                className="rounded-lg border border-[#00f2fe]/40 px-3 py-1.5 text-xs font-medium text-[#00f2fe] hover:bg-[#00f2fe]/10"
+              >
+                Verificar URL do Ngrok
+              </button>
+            )}
+          </div>
         </div>
       )}
 
       {/* Play/Pause Overlay Flash */}
-      {!isPlaying && !isLoadingMedia && !mediaError && (
+      {!isPlaying && !mediaError && (
         <button
           onClick={togglePlay}
           aria-label="Reproduzir vídeo"

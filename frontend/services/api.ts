@@ -185,15 +185,29 @@ export async function dispatchMediaRenderApi(
         })),
       }
 
-      const res = await fetch(`${url}/render`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(10000),
-      })
+      // Try local proxy first to bypass browser CORS / preflight limitations
+      let res: Response
+      try {
+        res = await fetch('/api/colab/render', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-colab-url': url,
+          },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(10000),
+        })
+      } catch {
+        res = await fetch(`${url}/render`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+          },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(10000),
+        })
+      }
 
       if (res.ok) {
         const data = await res.json()
@@ -228,37 +242,32 @@ export async function pollJobStatusApi(
   const url = (colabUrl || getStoredConfig().colabUrl).replace(/\/$/, '')
   if (url && !url.includes('/mock/')) {
     try {
-      const res = await fetch(`${url}/jobs/${jobId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        signal: AbortSignal.timeout(6000),
-      })
+      let res: Response
+      try {
+        res = await fetch(`/api/colab/jobs/${jobId}`, {
+          method: 'GET',
+          headers: { 'x-colab-url': url },
+          signal: AbortSignal.timeout(6000),
+        })
+      } catch {
+        res = await fetch(`${url}/jobs/${jobId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+          },
+          signal: AbortSignal.timeout(6000),
+        })
+      }
 
       if (res.ok) {
         const data = await res.json()
         let resolvedVideoUrl: string | undefined = data.videoUrl
 
         if (resolvedVideoUrl) {
-          // If the backend returned an internal address like http://127.0.0.1:8000/video/...
-          if (
-            resolvedVideoUrl.includes('127.0.0.1') ||
-            resolvedVideoUrl.includes('localhost') ||
-            resolvedVideoUrl.startsWith('/video/')
-          ) {
-            const filename = resolvedVideoUrl.split('/video/').pop()
-            resolvedVideoUrl = `${url}/video/${filename}`
-          }
-
-          // Ensure ngrok query parameter is attached to bypass warning page on native media tags
-          if (resolvedVideoUrl.includes('ngrok')) {
-            const separator = resolvedVideoUrl.includes('?') ? '&' : '?'
-            if (!resolvedVideoUrl.includes('ngrok-skip-browser-warning')) {
-              resolvedVideoUrl = `${resolvedVideoUrl}${separator}ngrok-skip-browser-warning=true`
-            }
-          }
+          const filename = resolvedVideoUrl.split('/video/').pop() || `${jobId}.mp4`
+          // Serve video via local Next.js proxy to guarantee 0 CORS and seamless streaming
+          resolvedVideoUrl = `/api/colab/video/${filename}?colabUrl=${encodeURIComponent(url)}`
         }
 
         return {

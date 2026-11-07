@@ -658,6 +658,7 @@ function StudioSection({
                   title={generatedTitle}
                   narration={generatedDesc}
                   hashtags={generatedTags.split(' ')}
+                  onOpenSettings={onOpenSettings}
                 />
               )}
 
