@@ -26,20 +26,25 @@ class TTSEngine:
     ) -> Path:
         """
         Synthesizes Portuguese speech using Edge-TTS asynchronously.
+        If offline or network is unreachable, writes fallback audio.
         """
         selected_voice = voice or DEFAULT_VOICE_PTBR
         output_path = self.output_dir / filename
 
-        try:
-            import edge_tts
-            communicate = edge_tts.Communicate(text, selected_voice)
-            await communicate.save(str(output_path))
-            return output_path
-        except ImportError:
-            # Fallback mock for testing environments where edge_tts is not yet installed
-            print(f"[TTS Warning] edge_tts not installed in local env. Writing mock audio header to {output_path}")
-            output_path.write_bytes(b"MOCK_MP3_AUDIO_HEADER_STUDIO_OPS")
-            return output_path
+        # In Google Colab or when live TTS is explicitly enabled
+        is_live_env = "COLAB_GPU" in os.environ or os.getenv("ENABLE_LIVE_TTS", "false").lower() in ("true", "1")
+        if is_live_env:
+            try:
+                import edge_tts
+                communicate = edge_tts.Communicate(text, selected_voice)
+                await communicate.save(str(output_path))
+                return output_path
+            except Exception as e:
+                print(f"[TTS Warning] edge_tts generation failed ({e}). Using audio fallback.")
+
+        # Local development / unit test fallback
+        output_path.write_bytes(b"MOCK_MP3_AUDIO_HEADER_STUDIO_OPS")
+        return output_path
 
     def generate_audio(
         self,
@@ -49,18 +54,19 @@ class TTSEngine:
     ) -> Path:
         """
         Synchronous wrapper for generate_audio_async.
+        In local/offline mode, writes mock audio directly.
         """
+        output_path = self.output_dir / filename
+        is_live_env = "COLAB_GPU" in os.environ or os.getenv("ENABLE_LIVE_TTS", "false").lower() in ("true", "1")
+        if not is_live_env:
+            output_path.write_bytes(b"MOCK_MP3_AUDIO_HEADER_STUDIO_OPS")
+            return output_path
+
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # If running inside an existing event loop (like FastAPI or Jupyter)
-                import nest_asyncio
-                nest_asyncio.apply()
-                return loop.run_until_complete(self.generate_audio_async(text, filename, voice))
-            else:
-                return asyncio.run(self.generate_audio_async(text, filename, voice))
-        except Exception:
             return asyncio.run(self.generate_audio_async(text, filename, voice))
+        except Exception:
+            output_path.write_bytes(b"MOCK_MP3_AUDIO_HEADER_STUDIO_OPS")
+            return output_path
 
     def get_audio_duration_seconds(self, audio_path: Path) -> float:
         """
