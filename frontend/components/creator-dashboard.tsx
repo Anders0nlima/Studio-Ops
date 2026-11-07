@@ -639,35 +639,30 @@ function StudioSection({
           </div>
 
           <div className="output-layout">
-            {/* 9:16 Vertical Smartphone Mockup */}
-            <div className={`phone-preview ${isGenerating ? 'rendering' : ''}`}>
-              <div className="phone-top">
-                <span>9:41</span>
-                <span>●●●</span>
-              </div>
-
-              {isGenerating ? (
+            {isGenerating ? (
+              <div className="phone-preview rendering">
+                <div className="phone-top">
+                  <span>9:41</span>
+                  <span>●●●</span>
+                </div>
                 <div className="rendering-state">
                   <div className="spinner" />
                   <strong>{statusMessage || 'Renderizando na nuvem'}</strong>
                   <small>Ollama + Colab T4 em sincronia ({Math.round(progress)}%)</small>
                 </div>
-              ) : (
-                <VideoPlayer
-                  videoUrl={videoUrl}
-                  title={generatedTitle}
-                  narration={generatedDesc}
-                  hashtags={generatedTags.split(' ')}
-                  onOpenSettings={onOpenSettings}
-                />
-              )}
-
-              <div className="phone-bottom">
-                <span />
-                <span />
-                <span />
+                <div className="phone-bottom">
+                  <span />
+                </div>
               </div>
-            </div>
+            ) : (
+              <VideoPlayer
+                videoUrl={videoUrl}
+                title={generatedTitle}
+                narration={generatedDesc}
+                hashtags={generatedTags.split(' ')}
+                onOpenSettings={onOpenSettings}
+              />
+            )}
 
             {/* Dynamic Copy Fields (Growth Hacker Output) */}
             <div className="copy-fields">

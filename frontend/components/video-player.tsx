@@ -13,8 +13,10 @@ import {
   Bookmark,
   Share2,
   Music,
-  Sparkles,
+  Eye,
+  EyeOff,
   AlertCircle,
+  Sparkles,
 } from 'lucide-react'
 import { getStoredConfig } from '@/services/api'
 
@@ -43,18 +45,18 @@ export function VideoPlayer({
   const [progress, setProgress] = useState(0)
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
+  const [showOverlay, setShowOverlay] = useState(false) // Clean mode by default for best UX
   const [isLiked, setIsLiked] = useState(false)
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [mediaError, setMediaError] = useState<string | null>(null)
 
-  // Resolve best streaming URL: prefer local Next.js proxy to guarantee 0 CORS & bypass Ngrok splash
+  // Resolve best streaming URL: route through local Next.js proxy to eliminate CORS
   const resolvedSrc = useMemo(() => {
     if (!videoUrl) return null
     if (videoUrl.startsWith('/api/') || videoUrl.startsWith('blob:')) {
       return videoUrl
     }
 
-    // If an external Ngrok/Colab or localhost URL was passed, route through our local Next.js proxy
     const cfg = getStoredConfig()
     const targetBase = cfg.colabUrl || ''
     if (videoUrl.includes('/video/')) {
@@ -75,7 +77,6 @@ export function VideoPlayer({
         .play()
         .then(() => setIsPlaying(true))
         .catch(() => {
-          // Autoplay policy fallback: mute and play
           if (videoRef.current) {
             videoRef.current.muted = true
             setIsMuted(true)
@@ -96,7 +97,8 @@ export function VideoPlayer({
     }
   }
 
-  const toggleMute = () => {
+  const toggleMute = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
     if (!videoRef.current) return
     videoRef.current.muted = !isMuted
     setIsMuted(!isMuted)
@@ -153,223 +155,277 @@ export function VideoPlayer({
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-tr from-[#fe0979] to-[#00f2fe] text-white shadow-lg shadow-[#00f2fe]/20">
           <Play className="h-8 w-8 translate-x-0.5 fill-white text-white" />
         </div>
-        <strong className="text-base font-semibold text-white">Pronto para renderizar</strong>
-        <p className="mt-1 text-xs text-white/50">
-          Configure seu tema e clique no botão para renderizar o MP4 vertical 9:16
+        <strong className="text-sm font-semibold text-white">Pronto para renderizar</strong>
+        <p className="mt-1 text-xs text-white/50 leading-relaxed max-w-[200px]">
+          Escolha o tema e clique em gerar para renderizar o MP4 vertical 9:16
         </p>
       </div>
     )
   }
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-black select-none">
-      {/* Video Element */}
-      {resolvedSrc && (
-        <video
-          ref={videoRef}
-          src={resolvedSrc}
-          poster={posterUrl}
-          playsInline
-          loop
-          className="h-full w-full object-cover"
-          onClick={togglePlay}
-          onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={handleLoadedMetadata}
-          onError={(e) => {
-            console.warn('Video tag media playback warning:', e)
-            setMediaError('O túnel do Google Colab está offline ou o vídeo não pôde ser carregado.')
-          }}
-        />
-      )}
+    <div className="flex flex-col items-center gap-3 w-full">
+      {/* Smartphone Frame */}
+      <div className="phone-preview group">
+        {/* Top Status Bar (Speaker Notch) */}
+        <div className="phone-top">
+          <span>9:41</span>
+          <div className="h-2.5 w-14 rounded-full bg-black/80 border border-white/10" />
+          <span>●●●</span>
+        </div>
 
-      {/* Friendly Error Overlay if Colab tunnel is offline */}
-      {mediaError && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/90 p-5 text-center text-white">
-          <AlertCircle className="h-9 w-9 text-amber-400 mb-2" />
-          <strong className="text-xs font-semibold text-amber-300">
-            Conexão com o Colab Necessária
-          </strong>
-          <p className="text-[11px] text-white/70 mt-1 mb-4 leading-relaxed">
-            {mediaError}
-          </p>
-          <div className="flex flex-col gap-2 w-full max-w-[200px]">
-            <button
-              onClick={() => {
-                setMediaError(null)
-                if (videoRef.current) {
-                  videoRef.current.load()
-                  videoRef.current.play().catch(() => {})
-                }
-              }}
-              className="flex items-center justify-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
-            >
-              <RotateCcw className="h-3.5 w-3.5" /> Tentar recarregar
-            </button>
-            {onOpenSettings && (
+        {/* Video Element */}
+        {resolvedSrc && (
+          <video
+            ref={videoRef}
+            src={resolvedSrc}
+            poster={posterUrl}
+            playsInline
+            loop
+            className="h-full w-full object-cover cursor-pointer"
+            onClick={togglePlay}
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
+            onError={(e) => {
+              console.warn('Video tag playback warning:', e)
+              setMediaError('O túnel do Google Colab está offline ou o vídeo não pôde ser carregado.')
+            }}
+          />
+        )}
+
+        {/* Clean Mode Floating Sound Badge (Top Right) */}
+        <button
+          onClick={toggleMute}
+          title={isMuted ? 'Ativar som' : 'Silenciar'}
+          className="absolute top-9 right-3 z-30 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white/90 backdrop-blur-md border border-white/15 transition-transform hover:scale-110 active:scale-95 shadow-md"
+        >
+          {isMuted ? <VolumeX className="h-3.5 w-3.5 text-amber-400" /> : <Volume2 className="h-3.5 w-3.5 text-[#00f2fe]" />}
+        </button>
+
+        {/* Subtle Play/Pause Flash when paused */}
+        {!isPlaying && !mediaError && (
+          <button
+            onClick={togglePlay}
+            aria-label="Reproduzir vídeo"
+            className="absolute inset-0 z-20 flex items-center justify-center bg-black/25 transition-opacity hover:bg-black/35"
+          >
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white shadow-2xl transition-transform hover:scale-110 active:scale-95">
+              <Play className="h-7 w-7 translate-x-0.5 fill-white text-white" />
+            </div>
+          </button>
+        )}
+
+        {/* TikTok Mockup Overlay (Toggled ON/OFF) */}
+        {showOverlay && !mediaError && (
+          <>
+            {/* Right TikTok Icons Column */}
+            <div className="absolute right-2 bottom-14 z-20 flex flex-col items-center gap-3 text-white pointer-events-auto">
+              {/* Creator Avatar */}
+              <div className="relative">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white bg-gradient-to-br from-[#fe0979] to-[#00f2fe] text-[10px] font-bold shadow-md">
+                  SO
+                </div>
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#fe0979] text-[9px] font-bold text-white shadow">
+                  +
+                </span>
+              </div>
+
+              {/* Like */}
               <button
-                onClick={onOpenSettings}
-                className="rounded-lg border border-[#00f2fe]/40 px-3 py-1.5 text-xs font-medium text-[#00f2fe] hover:bg-[#00f2fe]/10"
+                onClick={() => setIsLiked(!isLiked)}
+                className="flex flex-col items-center gap-0.5"
               >
-                Verificar URL do Ngrok
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm transition-transform active:scale-90 ${
+                    isLiked ? 'text-[#fe0979]' : 'text-white'
+                  }`}
+                >
+                  <Heart className={`h-4 w-4 ${isLiked ? 'fill-[#fe0979]' : ''}`} />
+                </div>
+                <span className="text-[9px] font-semibold text-white/90">
+                  {isLiked ? '42.1K' : '42.0K'}
+                </span>
               </button>
-            )}
-          </div>
-        </div>
-      )}
 
-      {/* Play/Pause Overlay Flash */}
-      {!isPlaying && !mediaError && (
+              {/* Comment */}
+              <div className="flex flex-col items-center gap-0.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm text-white">
+                  <MessageCircle className="h-4 w-4" />
+                </div>
+                <span className="text-[9px] font-semibold text-white/90">1.2K</span>
+              </div>
+
+              {/* Bookmark */}
+              <button
+                onClick={() => setIsBookmarked(!isBookmarked)}
+                className="flex flex-col items-center gap-0.5"
+              >
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm transition-transform active:scale-90 ${
+                    isBookmarked ? 'text-amber-400' : 'text-white'
+                  }`}
+                >
+                  <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-amber-400' : ''}`} />
+                </div>
+                <span className="text-[9px] font-semibold text-white/90">
+                  {isBookmarked ? '8.4K' : '8.3K'}
+                </span>
+              </button>
+
+              {/* Share */}
+              <div className="flex flex-col items-center gap-0.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm text-white">
+                  <Share2 className="h-4 w-4" />
+                </div>
+                <span className="text-[9px] font-semibold text-white/90">3.9K</span>
+              </div>
+
+              {/* Spinning Disc */}
+              <div
+                className={`flex h-7 w-7 items-center justify-center rounded-full border border-white/30 bg-neutral-900 text-[#00f2fe] shadow-lg ${
+                  isPlaying ? 'animate-spin' : ''
+                }`}
+                style={{ animationDuration: '4s' }}
+              >
+                <Music className="h-3 w-3" />
+              </div>
+            </div>
+
+            {/* Bottom Caption Overlay */}
+            <div className="absolute bottom-4 left-3 right-12 z-20 text-white pointer-events-none">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-white drop-shadow">
+                <span>@studioops</span>
+                <span className="text-[9px] text-[#00f2fe] font-semibold">Oficial</span>
+              </div>
+
+              <p className="mt-0.5 line-clamp-2 text-[10px] font-medium text-white/90 drop-shadow leading-tight">
+                {narration || title}
+              </p>
+
+              <div className="mt-1 flex flex-wrap gap-1 text-[9px] font-semibold text-[#00f2fe] drop-shadow">
+                {hashtags.slice(0, 3).map((tag, i) => (
+                  <span key={i}>{tag.startsWith('#') ? tag : `#${tag}`}</span>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Clean Mode Bottom Discrete Bar (Title Hook) */}
+        {!showOverlay && !mediaError && (
+          <div className="absolute bottom-3 left-3 right-3 z-20 text-white pointer-events-none">
+            <p className="line-clamp-1 text-[10px] font-medium text-white/80 drop-shadow">
+              {title}
+            </p>
+          </div>
+        )}
+
+        {/* Interactive Progress Bar */}
+        <div
+          className="absolute bottom-0 left-0 right-0 z-30 h-1 cursor-pointer bg-white/20 transition-all hover:h-2"
+          onClick={handleSeek}
+        >
+          <div
+            className="h-full bg-gradient-to-r from-[#fe0979] to-[#00f2fe] transition-all"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+
+        {/* Bottom Home Indicator */}
+        <div className="phone-bottom">
+          <span />
+        </div>
+
+        {/* Error Overlay if connection dropped */}
+        {mediaError && (
+          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/90 p-4 text-center text-white">
+            <AlertCircle className="h-8 w-8 text-amber-400 mb-2" />
+            <strong className="text-xs font-semibold text-amber-300">
+              Conexão com o Colab Necessária
+            </strong>
+            <p className="text-[10px] text-white/70 mt-1 mb-3 leading-relaxed">
+              {mediaError}
+            </p>
+            <div className="flex flex-col gap-1.5 w-full max-w-[180px]">
+              <button
+                onClick={() => {
+                  setMediaError(null)
+                  if (videoRef.current) {
+                    videoRef.current.load()
+                    videoRef.current.play().catch(() => {})
+                  }
+                }}
+                className="flex items-center justify-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
+              >
+                <RotateCcw className="h-3 w-3" /> Tentar recarregar
+              </button>
+              {onOpenSettings && (
+                <button
+                  onClick={onOpenSettings}
+                  className="rounded-lg border border-[#00f2fe]/40 px-3 py-1.5 text-xs font-medium text-[#00f2fe] hover:bg-[#00f2fe]/10"
+                >
+                  Verificar URL do Ngrok
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* External Action Controls Bar (Located OUTSIDE the phone for flawless UX) */}
+      <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-neutral-900/90 px-3 py-2 shadow-lg backdrop-blur-md">
+        {/* Play/Pause */}
         <button
           onClick={togglePlay}
-          aria-label="Reproduzir vídeo"
-          className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 transition-opacity hover:bg-black/40"
+          title={isPlaying ? 'Pausar' : 'Reproduzir'}
+          className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-white transition-colors hover:bg-white/15"
         >
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white shadow-2xl">
-            <Play className="h-8 w-8 translate-x-0.5 fill-white text-white" />
-          </div>
+          {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-white" />}
         </button>
-      )}
 
-      {/* Right TikTok Action Sidebar */}
-      <div className="absolute right-3 bottom-20 z-20 flex flex-col items-center gap-4 text-white">
-        {/* Creator Avatar with Follow Plus */}
-        <div className="relative">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-gradient-to-br from-[#fe0979] to-[#00f2fe] text-xs font-bold shadow-md">
-            SO
-          </div>
-          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex h-4 w-4 items-center justify-center rounded-full bg-[#fe0979] text-[10px] text-white shadow">
-            +
-          </span>
-        </div>
-
-        {/* Like */}
+        {/* Replay */}
         <button
-          onClick={() => setIsLiked(!isLiked)}
-          aria-label="Curtir"
-          className="group flex flex-col items-center gap-1"
+          onClick={handleReplay}
+          title="Reiniciar vídeo"
+          className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-white transition-colors hover:bg-white/15"
         >
-          <div
-            className={`flex h-10 w-10 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm transition-transform active:scale-90 ${
-              isLiked ? 'text-[#fe0979]' : 'text-white'
-            }`}
-          >
-            <Heart className={`h-5 w-5 ${isLiked ? 'fill-[#fe0979]' : ''}`} />
-          </div>
-          <span className="text-[10px] font-semibold tracking-wider text-white/90">
-            {isLiked ? '42.1K' : '42.0K'}
-          </span>
+          <RotateCcw className="h-4 w-4" />
         </button>
 
-        {/* Comment */}
-        <button aria-label="Comentários" className="group flex flex-col items-center gap-1">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm text-white transition-transform active:scale-90">
-            <MessageCircle className="h-5 w-5" />
-          </div>
-          <span className="text-[10px] font-semibold tracking-wider text-white/90">1.2K</span>
-        </button>
-
-        {/* Bookmark */}
+        {/* Mute/Unmute */}
         <button
-          onClick={() => setIsBookmarked(!isBookmarked)}
-          aria-label="Salvar"
-          className="group flex flex-col items-center gap-1"
+          onClick={toggleMute}
+          title={isMuted ? 'Ativar som' : 'Silenciar'}
+          className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-white transition-colors hover:bg-white/15"
         >
-          <div
-            className={`flex h-10 w-10 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm transition-transform active:scale-90 ${
-              isBookmarked ? 'text-amber-400' : 'text-white'
-            }`}
-          >
-            <Bookmark className={`h-5 w-5 ${isBookmarked ? 'fill-amber-400' : ''}`} />
-          </div>
-          <span className="text-[10px] font-semibold tracking-wider text-white/90">
-            {isBookmarked ? '8.4K' : '8.3K'}
-          </span>
+          {isMuted ? <VolumeX className="h-4 w-4 text-amber-400" /> : <Volume2 className="h-4 w-4 text-[#00f2fe]" />}
         </button>
 
-        {/* Share */}
-        <button aria-label="Compartilhar" className="group flex flex-col items-center gap-1">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm text-white transition-transform active:scale-90">
-            <Share2 className="h-5 w-5" />
-          </div>
-          <span className="text-[10px] font-semibold tracking-wider text-white/90">3.9K</span>
-        </button>
+        <div className="h-4 w-[1px] bg-white/10 mx-0.5" />
 
-        {/* Spinning Disc */}
-        <div
-          className={`flex h-9 w-9 items-center justify-center rounded-full border-2 border-white/20 bg-neutral-900 text-[#00f2fe] shadow-lg ${
-            isPlaying ? 'animate-spin' : ''
+        {/* Toggle TikTok Mockup vs Clean View */}
+        <button
+          onClick={() => setShowOverlay(!showOverlay)}
+          title={showOverlay ? 'Ocultar interface TikTok' : 'Mostrar interface TikTok'}
+          className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+            showOverlay
+              ? 'bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/40'
+              : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
           }`}
-          style={{ animationDuration: '4s' }}
         >
-          <Music className="h-4 w-4" />
-        </div>
-      </div>
+          {showOverlay ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          <span>{showOverlay ? 'Modo Limpo' : 'Interface TikTok'}</span>
+        </button>
 
-      {/* Top Floating Controls */}
-      <div className="absolute top-4 left-3 right-3 z-20 flex items-center justify-between">
-        <span className="flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-medium text-[#00f2fe] backdrop-blur-md border border-[#00f2fe]/30">
-          <Sparkles className="h-3 w-3" /> SDXL 9:16 + Edge-TTS
-        </span>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={toggleMute}
-            aria-label={isMuted ? 'Ativar som' : 'Silenciar'}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-colors hover:bg-black/80"
-          >
-            {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-          </button>
-          <button
-            onClick={handleReplay}
-            aria-label="Reiniciar"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-colors hover:bg-black/80"
-          >
-            <RotateCcw className="h-4 w-4" />
-          </button>
-          <button
-            onClick={handleDownloadFile}
-            aria-label="Baixar MP4"
-            title="Baixar MP4 final"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00f2fe]/90 text-black backdrop-blur-md font-bold transition-transform hover:scale-105 active:scale-95"
-          >
-            <Download className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Bottom Info & Caption Overlay */}
-      <div className="absolute bottom-4 left-3 right-16 z-20 text-white">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-white drop-shadow">
-          <span>@studioops_ai</span>
-          <span className="inline-block h-1 w-1 rounded-full bg-white/60" />
-          <span className="text-[10px] text-[#00f2fe]">Vídeo Oficial</span>
-        </div>
-
-        <p className="mt-1 line-clamp-2 text-xs font-medium text-white/95 drop-shadow leading-snug">
-          {narration || title}
-        </p>
-
-        <div className="mt-1 flex flex-wrap gap-1 text-[11px] font-semibold text-[#00f2fe] drop-shadow">
-          {hashtags.slice(0, 4).map((tag, i) => (
-            <span key={i}>{tag.startsWith('#') ? tag : `#${tag}`}</span>
-          ))}
-        </div>
-
-        <div className="mt-2 flex items-center gap-1.5 text-[10px] text-white/80">
-          <Music className="h-3 w-3 animate-pulse text-[#00f2fe]" />
-          <span className="truncate">Áudio Original — StudioOps AI Engine</span>
-        </div>
-      </div>
-
-      {/* Interactive Progress Bar */}
-      <div
-        className="absolute bottom-0 left-0 right-0 z-30 h-1.5 cursor-pointer bg-white/20 transition-all hover:h-2.5"
-        onClick={handleSeek}
-      >
-        <div
-          className="h-full bg-gradient-to-r from-[#fe0979] to-[#00f2fe] transition-all"
-          style={{ width: `${progress}%` }}
-        />
+        {/* Download MP4 Button (Highlight) */}
+        <button
+          onClick={handleDownloadFile}
+          title="Baixar arquivo MP4 em alta definição"
+          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#fe0979] to-[#00f2fe] px-3 py-1.5 text-[11px] font-bold text-white shadow-md shadow-[#00f2fe]/20 transition-transform active:scale-95 hover:brightness-110 ml-1"
+        >
+          <Download className="h-3.5 w-3.5" />
+          <span>Baixar MP4</span>
+        </button>
       </div>
     </div>
   )
