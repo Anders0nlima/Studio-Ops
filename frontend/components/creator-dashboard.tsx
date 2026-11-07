@@ -440,7 +440,7 @@ function StudioSection({
 
         const jobId = dispatchResult.jobId
         let attempts = 0
-        const maxAttempts = 60 // 120 seconds max
+        const maxAttempts = 80 // 280 seconds max
 
         const pollInterval = setInterval(async () => {
           attempts++
@@ -458,9 +458,9 @@ function StudioSection({
               setErrorMessage(statusRes.error || 'Erro durante a renderização no Colab.')
             } else {
               // Update progressive feedback
-              const dynamicProgress = Math.min(95, 75 + Math.floor(attempts * 1.5))
+              const dynamicProgress = Math.min(95, 75 + Math.floor(attempts * 1.2))
               setProgress(dynamicProgress)
-              setStatusMessage(`Processando no Colab T4 (${statusRes.status})... ${attempts * 2}s`)
+              setStatusMessage(`Processando no Colab T4 (${statusRes.status})... ${Math.round(attempts * 3.5)}s`)
             }
           } catch (pollErr) {
             console.warn('Poll error:', pollErr)
@@ -473,7 +473,7 @@ function StudioSection({
               'Tempo limite de renderização atingido. Verifique se o Colab está ativo e com o Ngrok conectado.'
             )
           }
-        }, 2000)
+        }, 3500)
       } else {
         // Fallback simulation: local preview video
         setTimeout(() => {

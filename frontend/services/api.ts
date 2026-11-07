@@ -247,7 +247,7 @@ export async function pollJobStatusApi(
         res = await fetch(`/api/colab/jobs/${jobId}`, {
           method: 'GET',
           headers: { 'x-colab-url': url },
-          signal: AbortSignal.timeout(6000),
+          signal: AbortSignal.timeout(12000),
         })
       } catch {
         res = await fetch(`${url}/jobs/${jobId}`, {
@@ -256,7 +256,7 @@ export async function pollJobStatusApi(
             'Content-Type': 'application/json',
             'ngrok-skip-browser-warning': 'true',
           },
-          signal: AbortSignal.timeout(6000),
+          signal: AbortSignal.timeout(12000),
         })
       }
 
@@ -278,11 +278,18 @@ export async function pollJobStatusApi(
         }
       }
     } catch (e) {
-      console.warn('[API Poll] Error polling Colab job:', e)
+      console.warn('[API Poll] Retrying poll for Colab job:', e)
+      // Return ongoing processing status on transient timeout so polling continues
+      return { status: 'rendering', progress: 75 }
     }
   }
 
-  return { status: 'completed', progress: 100, videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' }
+  // Simulated fallback only when no Colab URL is configured
+  return {
+    status: 'completed',
+    progress: 100,
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+  }
 }
 
 /**
