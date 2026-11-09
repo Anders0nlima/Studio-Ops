@@ -422,7 +422,7 @@ export async function pollJobStatusApi(
   return {
     status: 'completed',
     progress: 100,
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    videoUrl: '/sample_preview.mp4',
   }
 }
 

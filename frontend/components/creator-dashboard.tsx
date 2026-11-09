@@ -99,6 +99,7 @@ function Sidebar({
   savedVideosCount,
 }: SidebarProps) {
   const [workspaceOpen, setWorkspaceOpen] = useState(true)
+  const [agentsOpen, setAgentsOpen] = useState(false)
 
   const items = [
     { id: 'trends' as Tab, label: 'Tendências do Dia', icon: TrendingUp },
@@ -187,15 +188,71 @@ function Sidebar({
         </div>
 
         <div className="sidebar-bottom">
-          <div className="agent-status" onClick={onOpenSettings} role="button" tabIndex={0}>
-            <span className={`online-dot ${hasColabConfigured ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-            <div>
-              <strong>Agentes online</strong>
-              <small>
-                {hasColabConfigured ? 'Ollama + Colab T4 Online' : 'Ollama Online (Colab pendente)'}
-              </small>
+          <div className="agent-container">
+            <button
+              type="button"
+              className={`agent-status ${agentsOpen ? 'agent-status-open' : ''}`}
+              onClick={() => setAgentsOpen((prev) => !prev)}
+              aria-expanded={agentsOpen}
+              aria-controls="agents-dropdown"
+              title={agentsOpen ? 'Recolher detalhes dos agentes' : 'Ver status dos agentes'}
+            >
+              <span className={`online-dot ${hasColabConfigured ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              <div>
+                <strong>Agentes online</strong>
+                <small>
+                  {hasColabConfigured ? 'Ollama + Colab T4 Online' : 'Ollama Online (Colab pendente)'}
+                </small>
+              </div>
+              <ChevronDown className={`agent-chevron ${agentsOpen ? 'agent-chevron-rotated' : ''}`} />
+            </button>
+
+            <div
+              id="agents-dropdown"
+              className={`agent-collapse ${agentsOpen ? 'open' : ''}`}
+            >
+              <div className="agent-collapse-inner">
+                {agents.map((agent) => (
+                  <div key={agent.id} className="agent-item-mini">
+                    <span className="agent-item-dot online" />
+                    <div className="agent-item-content">
+                      <div className="agent-item-header">
+                        <strong className="agent-item-name">{agent.name}</strong>
+                        <span className="agent-item-model">{agent.model}</span>
+                      </div>
+                      <small className="agent-item-role">{agent.role}</small>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="agent-item-mini">
+                  <span className={`agent-item-dot ${hasColabConfigured ? 'online' : 'pending'}`} />
+                  <div className="agent-item-content">
+                    <div className="agent-item-header">
+                      <strong className="agent-item-name">GPU Cloud & TTS</strong>
+                      <span className={`agent-item-model ${hasColabConfigured ? 'online-tag' : 'pending-tag'}`}>
+                        {hasColabConfigured ? 'T4 Online' : 'Pendente'}
+                      </span>
+                    </div>
+                    <small className="agent-item-role">
+                      {hasColabConfigured ? 'Google Colab SDXL + Bark TTS' : 'Executando em CPU local'}
+                    </small>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="agent-quick-settings-btn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onOpenSettings()
+                  }}
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  <span>Configurar Conexões</span>
+                </button>
+              </div>
             </div>
-            <ChevronDown />
           </div>
 
           <button className="nav-item" onClick={onOpenSettings}>
@@ -222,7 +279,6 @@ function Sidebar({
               <strong>Creator Studio</strong>
               <small>Modo Autônomo 100% Free</small>
             </div>
-            <ChevronDown />
           </div>
         </div>
       </aside>
@@ -774,8 +830,54 @@ function getInitialScriptPreview(rawIdea: string, styleName: string = 'Cinematic
     }
   }
 
-  // 4. Padrão Adaptativo com 4 Cenas Dinâmicas
-  const topicLabel = rawIdea ? rawIdea.slice(0, 45) : 'Como a inteligência artificial cria vídeos em segundos'
+  // 4. Tecnologia / Inteligência Artificial
+  if (lower.includes('ia') || lower.includes('intelig') || lower.includes('artificial')) {
+    return {
+      topic: 'Inteligência Artificial no TikTok',
+      styleName,
+      duration: '15s',
+      scenes: [
+        {
+          order: 1,
+          type: 'hook',
+          timeRange: '0-3s',
+          narrationText: 'A ferramenta de inteligência artificial que está assustando os criadores de conteúdo.',
+          imagePromptEnglish: `Futuristic holographic glowing AI neural core pulsating with cyan and purple energy, ${s} style, vertical 9:16 aspect ratio`,
+        },
+        {
+          order: 2,
+          type: 'problem',
+          timeRange: '3-7s',
+          narrationText: 'Quem ainda gasta quatro horas editando vídeos manuais está perdendo espaço no algoritmo.',
+          imagePromptEnglish: `Frustrated creator looking at overwhelming cluttered timeline on vintage monitors fading into shadows, ${s} style, vertical 9:16`,
+        },
+        {
+          order: 3,
+          type: 'solution',
+          timeRange: '7-11s',
+          narrationText: 'Novos agentes autônomos geram roteiro, imagens e voz neural completa em menos de sessenta segundos.',
+          imagePromptEnglish: `Dynamic floating vertical screens displaying rapid automated media generation with glowing neon streams, ${s} style, vertical 9:16`,
+        },
+        {
+          order: 4,
+          type: 'cta',
+          timeRange: '11-15s',
+          narrationText: 'Você já usa inteligência artificial na sua rotina? Comente sua ferramenta favorita!',
+          imagePromptEnglish: `Triumphant creator holding smartphone with virally exploding analytics dashboard glowing green, ${s} style, vertical 9:16`,
+        },
+      ],
+      fullNarration:
+        'A ferramenta de inteligência artificial que está assustando os criadores de conteúdo. Quem ainda gasta quatro horas editando vídeos manuais está perdendo espaço no algoritmo. Novos agentes autônomos geram roteiro, imagens e voz neural completa em menos de sessenta segundos. Você já usa inteligência artificial na sua rotina? Comente sua ferramenta favorita!',
+    }
+  }
+
+  // 5. Padrão Adaptativo com 4 Cenas Dinâmicas (Calibrado para ~40 palavras em 15s)
+  const topicLabel = rawIdea ? rawIdea.slice(0, 35) : 'Criar Conteúdo com IA'
+  const hookText = `Você sabia que quase tudo sobre ${topicLabel} tem um lado oculto?`
+  const problemText = 'A maioria das pessoas comete o erro clássico de tentar o caminho tradicional sem ver resultado.'
+  const solutionText = 'Quando você prioriza o fundamento prático, o engajamento aparece três vezes mais rápido.'
+  const ctaText = 'Você já testou essa estratégia? Comente aqui embaixo a sua opinião!'
+
   return {
     topic: topicLabel,
     styleName,
@@ -785,32 +887,32 @@ function getInitialScriptPreview(rawIdea: string, styleName: string = 'Cinematic
         order: 1,
         type: 'hook',
         timeRange: '0-3s',
-        narrationText: `Você sabia que quase tudo que te contaram sobre ${topicLabel} tem um lado oculto?`,
+        narrationText: hookText,
         imagePromptEnglish: `High-impact striking opening visual capturing ${topicLabel}, dramatic atmospheric composition, cinematic lighting, ${s} style, 8k render, vertical 9:16 aspect ratio`,
       },
       {
         order: 2,
         type: 'problem',
         timeRange: '3-7s',
-        narrationText: 'A maioria comete o erro clássico de tentar o caminho tradicional sem entender a mecânica real do assunto.',
+        narrationText: problemText,
         imagePromptEnglish: `Intense visual revealing the core challenge behind ${topicLabel}, dark moody contrast, ${s} style, vertical 9:16`,
       },
       {
         order: 3,
         type: 'solution',
         timeRange: '7-11s',
-        narrationText: 'Quando você inverte a lógica e prioriza o fundamento prático, o resultado aparece três vezes mais rápido.',
+        narrationText: solutionText,
         imagePromptEnglish: `Dynamic breakthrough scene revealing the practical solution for ${topicLabel}, rich vibrant lighting, ${s} aesthetic, vertical 9:16 aspect ratio`,
       },
       {
         order: 4,
         type: 'cta',
         timeRange: '11-15s',
-        narrationText: 'Qual a sua opinião sobre isso? Comente aqui embaixo que eu quero saber!',
+        narrationText: ctaText,
         imagePromptEnglish: `Inspiring conclusion scene highlighting the impact of ${topicLabel}, cinematic lens flare and warm glow, ${s} style, vertical 9:16`,
       },
     ],
-    fullNarration: `Você sabia que quase tudo que te contaram sobre ${topicLabel} tem um lado oculto? A maioria comete o erro clássico de tentar o caminho tradicional sem entender a mecânica real do assunto. Quando você inverte a lógica e prioriza o fundamento prático, o resultado aparece três vezes mais rápido. Qual a sua opinião sobre isso? Comente aqui embaixo que eu quero saber!`,
+    fullNarration: `${hookText} ${problemText} ${solutionText} ${ctaText}`,
   }
 }
 
@@ -1072,8 +1174,7 @@ function StudioSection({
             setProgress(100)
             setPipelineStep('completed')
             setStatusMessage('Vídeo demonstrativo gerado com sucesso!')
-            const sampleUrl =
-              'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
+            const sampleUrl = '/sample_preview.mp4'
             setVideoUrl(sampleUrl)
             setIsSavedLocally(true)
 

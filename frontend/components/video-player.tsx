@@ -53,7 +53,7 @@ export function VideoPlayer({
   // Resolve best streaming URL: route through local Next.js proxy to eliminate CORS
   const resolvedSrc = useMemo(() => {
     if (!videoUrl) return null
-    if (videoUrl.startsWith('/api/') || videoUrl.startsWith('blob:')) {
+    if (videoUrl.startsWith('/api/') || videoUrl.startsWith('blob:') || videoUrl.startsWith('/')) {
       return videoUrl
     }
 

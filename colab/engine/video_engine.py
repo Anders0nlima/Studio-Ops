@@ -76,15 +76,16 @@ class VideoEngine:
                 clip_with_motion = self.apply_ken_burns(clip)
                 scene_clips.append(clip_with_motion)
 
+            tot_dur = sum(durations)
             # Concatenate scenes with smooth crossfade
-            final_video = concatenate_videoclips(scene_clips, method="compose")
+            final_video = concatenate_videoclips(scene_clips, method="compose").set_duration(tot_dur)
 
             # Attach audio narration if available
             if audio_path and Path(audio_path).exists():
                 try:
                     audio_clip = AudioFileClip(str(audio_path))
-                    if audio_clip.duration > total_duration:
-                        audio_clip = audio_clip.subclip(0, total_duration)
+                    if audio_clip.duration > tot_dur:
+                        audio_clip = audio_clip.subclip(0, tot_dur)
                     final_video = final_video.set_audio(audio_clip)
                 except Exception as audio_err:
                     print(f"[VideoEngine Warning] Could not attach audio: {audio_err}")
