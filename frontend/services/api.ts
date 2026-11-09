@@ -33,40 +33,39 @@ export function saveStoredConfig(config: ConnectionConfig): void {
 }
 
 /**
- * 1. Fetch Trends from n8n /webhook/trends with graceful fallback
+ * 1. Fetch Trends via local API proxy (/api/trends) with n8n + Ollama + dynamic niche engine
  */
-export async function fetchTrendsApi(n8nUrl?: string): Promise<{ trends: TrendItem[]; source: string }> {
-  const base = (n8nUrl || getStoredConfig().n8nUrl).replace(/\/$/, '')
+export async function fetchTrendsApi(
+  category: string = 'all',
+  niche?: string,
+  n8nUrl?: string
+): Promise<{ trends: TrendItem[]; source: string; providerName?: string }> {
+  const config = getStoredConfig()
+  const targetN8n = n8nUrl || config.n8nUrl
+
   try {
-    const res = await fetch(`${base}/webhook/trends`, {
+    const res = await fetch('/api/trends', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ category: 'All', timeframe: '24h' }),
-      signal: AbortSignal.timeout(8000),
+      body: JSON.stringify({ category, niche, n8nUrl: targetN8n }),
+      signal: AbortSignal.timeout(9000),
     })
 
     if (res.ok) {
       const data = await res.json()
       if (data.trends && Array.isArray(data.trends) && data.trends.length > 0) {
-        // Merge with existing images for visual richness
-        const mappedTrends: TrendItem[] = data.trends.map((t: any, idx: number) => ({
-          id: t.id || `trend-live-${idx}`,
-          tag: t.tag.startsWith('#') ? t.tag : `#${t.tag}`,
-          growth: t.growth || '+150%',
-          color: (t.color as any) || (idx % 2 === 0 ? 'cyan' : 'pink'),
-          insight: t.insight || 'Tendência identificada pelo Coolhunter Agent.',
-          image: MOCK_TRENDS[idx % MOCK_TRENDS.length]?.image || 'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=800&q=85',
-          category: t.topic || 'Tendência Viral',
-          retentionScore: t.retentionScore || 85,
-        }))
-        return { trends: mappedTrends, source: 'n8n_live' }
+        return {
+          trends: data.trends,
+          source: data.source || 'api_trends',
+          providerName: data.providerName || 'Coolhunter Live',
+        }
       }
     }
   } catch (err) {
-    console.warn('[API Trends] n8n webhook offline or unreachable, using verified fallback:', err)
+    console.warn('[API Trends] Error calling /api/trends, using local fallback:', err)
   }
 
-  return { trends: MOCK_TRENDS, source: 'mock_fallback' }
+  return { trends: MOCK_TRENDS, source: 'mock_fallback', providerName: 'Coolhunter Local' }
 }
 
 /**

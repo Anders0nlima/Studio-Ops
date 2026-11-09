@@ -258,26 +258,59 @@ function Header({
    3. TRENDS SECTION
    ========================================================================= */
 
-function TrendsSection({
-  onSelectTrend,
-}: {
-  onSelectTrend: (tag: string, insight: string) => void
-}) {
+interface TrendsSectionProps {
+  onSelectTrend: (trend: TrendItem) => void
+}
+
+function TrendsSection({ onSelectTrend }: TrendsSectionProps) {
   const [trends, setTrends] = useState<TrendItem[]>(MOCK_TRENDS)
   const [loading, setLoading] = useState(false)
-  const [dataSource, setDataSource] = useState<string>('carregando...')
+  const [providerName, setProviderName] = useState<string>('Coolhunter Agent')
+  const [activeCategory, setActiveCategory] = useState<string>('all')
+  const [nicheQuery, setNicheQuery] = useState('')
+  const [copiedHookId, setCopiedHookId] = useState<string | null>(null)
+  const [selectedTrendModal, setSelectedTrendModal] = useState<TrendItem | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<string>('')
 
-  const loadTrends = async () => {
+  const categories = [
+    { id: 'all', label: '🌟 Todas' },
+    { id: 'tech', label: '🤖 Tecnologia & IA' },
+    { id: 'productivity', label: '⚡ Produtividade' },
+    { id: 'lifestyle', label: '✨ Estilo de Vida' },
+    { id: 'finance', label: '💰 Finanças' },
+    { id: 'food', label: '🍔 Culinária & Fatos' },
+  ]
+
+  const loadTrends = async (cat: string = activeCategory, niche?: string) => {
     setLoading(true)
-    const result = await fetchTrendsApi()
+    const result = await fetchTrendsApi(cat, niche)
     setTrends(result.trends)
-    setDataSource(result.source === 'n8n_live' ? 'n8n Webhook (Tempo Real)' : 'Coolhunter Local')
+    setProviderName(result.providerName || (result.source === 'n8n_live' ? 'n8n Orquestrador' : 'Coolhunter Local'))
+    setLastUpdated(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))
     setLoading(false)
   }
 
   useEffect(() => {
-    loadTrends()
+    loadTrends('all')
   }, [])
+
+  const handleCategoryChange = (catId: string) => {
+    setActiveCategory(catId)
+    setNicheQuery('')
+    loadTrends(catId)
+  }
+
+  const handleNicheSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!nicheQuery.trim()) return
+    loadTrends('all', nicheQuery.trim())
+  }
+
+  const copyHook = (id: string, text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedHookId(id)
+    setTimeout(() => setCopiedHookId(null), 2000)
+  }
 
   return (
     <section className="content">
@@ -291,19 +324,61 @@ function TrendsSection({
             Tendências recomendadas <span>por IA</span>
           </h1>
           <p>
-            O Coolhunter Agent analisou dados de engajamento para encontrar ganchos virais com alto potencial de retenção ({dataSource}).
+            O Coolhunter Agent analisa padrões de engajamento no TikTok e extrai ganchos virais de 0-3s ({providerName}{lastUpdated ? ` • Atualizado às ${lastUpdated}` : ''}).
           </p>
         </div>
         <button
           className="date-button flex items-center gap-1.5"
-          onClick={loadTrends}
+          onClick={() => loadTrends(activeCategory, nicheQuery || undefined)}
           disabled={loading}
         >
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Atualizando...' : 'Atualizar tendências'}
+          {loading ? 'Minerando tendências...' : 'Atualizar tendências'}
         </button>
       </div>
 
+      {/* Category Pills */}
+      <div className="trend-categories">
+        {categories.map((cat) => (
+          <button
+            key={cat.id}
+            className={`category-pill ${activeCategory === cat.id && !nicheQuery ? 'active' : ''}`}
+            onClick={() => handleCategoryChange(cat.id)}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Niche exploration input */}
+      <form onSubmit={handleNicheSearch} className="niche-search-box">
+        <Search className="w-4 h-4 text-slate-400 ml-1 shrink-0" />
+        <input
+          type="text"
+          className="niche-search-input"
+          placeholder="Explorar tendências em qualquer nicho com IA (ex: Fitness, Imóveis, Advocacia, Fotografia...)"
+          value={nicheQuery}
+          onChange={(e) => setNicheQuery(e.target.value)}
+        />
+        {nicheQuery && (
+          <button
+            type="button"
+            className="text-slate-400 hover:text-white mr-1 text-xs"
+            onClick={() => {
+              setNicheQuery('')
+              loadTrends(activeCategory)
+            }}
+          >
+            Limpar
+          </button>
+        )}
+        <button type="submit" className="niche-search-btn" disabled={loading || !nicheQuery.trim()}>
+          <Sparkles className="w-3.5 h-3.5" />
+          {loading ? 'Minerando...' : 'Descobrir com IA'}
+        </button>
+      </form>
+
+      {/* Trends Grid */}
       <div className="trend-grid">
         {trends.map((trend) => (
           <article className="trend-card" key={trend.id}>
@@ -317,7 +392,9 @@ function TrendsSection({
               </span>
               <button
                 className="more-button"
-                aria-label={`Mais opções para ${trend.tag}`}
+                onClick={() => setSelectedTrendModal(trend)}
+                aria-label={`Ver raio-x para ${trend.tag}`}
+                title="Ver detalhes da tendência"
               >
                 •••
               </button>
@@ -328,10 +405,58 @@ function TrendsSection({
                 <h2>{trend.tag}</h2>
                 <TrendingUp className="trend-arrow" />
               </div>
+
+              {trend.topic && (
+                <div className="text-[11px] font-medium text-slate-300 mt-1 line-clamp-1">
+                  {trend.topic}
+                </div>
+              )}
+
               <p>{trend.insight}</p>
+
+              {/* Hook Box (0-3s) */}
+              <div className="trend-hook-container">
+                <div className="trend-hook-header">
+                  <span className="trend-hook-label">
+                    <Zap className="w-2.5 h-2.5 text-cyan-400" /> Gancho Viral (0-3s)
+                  </span>
+                  <button
+                    className="trend-copy-hook-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      copyHook(trend.id, trend.hookIdea || trend.insight)
+                    }}
+                    title="Copiar texto do gancho"
+                  >
+                    {copiedHookId === trend.id ? (
+                      <span className="text-emerald-400 flex items-center gap-1">
+                        <Check className="w-2.5 h-2.5" /> Copiado!
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <Clipboard className="w-2.5 h-2.5" /> Copiar
+                      </span>
+                    )}
+                  </button>
+                </div>
+                <p className="trend-hook-text">
+                  "{trend.hookIdea || trend.insight}"
+                </p>
+              </div>
+
+              {/* Meta Chips: Style & Retention Score */}
+              <div className="trend-meta-row">
+                <span className="style-chip">
+                  🎨 {trend.visualStyleRecommended || 'Cyberpunk'}
+                </span>
+                <span className="retention-chip">
+                  ⚡ {trend.retentionScore || 88}% Retenção
+                </span>
+              </div>
+
               <button
                 className="create-button"
-                onClick={() => onSelectTrend(trend.tag, trend.insight)}
+                onClick={() => onSelectTrend(trend)}
               >
                 <Sparkles /> Criar vídeo sobre isso
               </button>
@@ -339,6 +464,129 @@ function TrendsSection({
           </article>
         ))}
       </div>
+
+      {/* Modal: Raio-X da Tendência */}
+      {selectedTrendModal && (
+        <div
+          className="trend-modal-overlay"
+          onClick={() => setSelectedTrendModal(null)}
+        >
+          <div
+            className="trend-modal-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-5 border-b border-[#242730] flex items-start justify-between bg-[#15171d]">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">
+                    Raio-X de Viralização
+                  </span>
+                  <span className="text-[10px] text-slate-400">• {selectedTrendModal.category || 'Tendência Geral'}</span>
+                </div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  {selectedTrendModal.tag}
+                  <span className={`text-xs px-2 py-0.5 rounded font-semibold ${selectedTrendModal.color === 'cyan' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-pink-500/20 text-pink-300'}`}>
+                    {selectedTrendModal.growth}
+                  </span>
+                </h2>
+              </div>
+              <button
+                onClick={() => setSelectedTrendModal(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+              {/* Insight */}
+              <div>
+                <span className="text-slate-400 block font-medium mb-1">Por que está viralizando:</span>
+                <div className="p-3 bg-[#181a20] rounded-lg border border-[#2b2e38] text-slate-200 leading-relaxed">
+                  {selectedTrendModal.insight}
+                </div>
+              </div>
+
+              {/* Gancho */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-cyan-400 font-bold flex items-center gap-1">
+                    <Zap className="w-3.5 h-3.5" /> Gancho de 0-3 Segundos (Hook):
+                  </span>
+                  <button
+                    onClick={() => copyHook(selectedTrendModal.id, selectedTrendModal.hookIdea || '')}
+                    className="text-slate-400 hover:text-white flex items-center gap-1 text-[11px]"
+                  >
+                    {copiedHookId === selectedTrendModal.id ? (
+                      <span className="text-emerald-400 flex items-center gap-1"><Check className="w-3 h-3" /> Copiado!</span>
+                    ) : (
+                      <span className="flex items-center gap-1"><Clipboard className="w-3 h-3" /> Copiar gancho</span>
+                    )}
+                  </button>
+                </div>
+                <div className="p-3 bg-cyan-950/20 rounded-lg border border-cyan-800/40 text-cyan-100 font-medium italic">
+                  "{selectedTrendModal.hookIdea || 'Gancho calculado pelo Coolhunter'}"
+                </div>
+              </div>
+
+              {/* Roteiro em 3 Atos Sugerido */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="p-2.5 bg-[#171920] border border-[#262832] rounded-lg text-center">
+                  <span className="text-[10px] text-cyan-400 font-bold block mb-1">1. Hook (0-3s)</span>
+                  <span className="text-[11px] text-slate-300">Quebra de padrão visual e curiosidade</span>
+                </div>
+                <div className="p-2.5 bg-[#171920] border border-[#262832] rounded-lg text-center">
+                  <span className="text-[10px] text-pink-400 font-bold block mb-1">2. Corpo (3-12s)</span>
+                  <span className="text-[11px] text-slate-300">Entrega rápida do valor em 3 imagens SDXL</span>
+                </div>
+                <div className="p-2.5 bg-[#171920] border border-[#262832] rounded-lg text-center">
+                  <span className="text-[10px] text-emerald-400 font-bold block mb-1">3. CTA (12-15s)</span>
+                  <span className="text-[11px] text-slate-300">Gatilho de comentário ('Comente TESTAR')</span>
+                </div>
+              </div>
+
+              {/* Metadados */}
+              <div className="flex items-center justify-between p-3 bg-[#171920] rounded-lg border border-[#242730] text-slate-300">
+                <div>
+                  <span className="text-[10px] text-slate-400 block">Estilo Recomendado</span>
+                  <strong className="text-purple-300">{selectedTrendModal.visualStyleRecommended || 'Cyberpunk'}</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 block">Retenção Estimada</span>
+                  <strong className="text-emerald-400">{selectedTrendModal.retentionScore || 88}%</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 block">Duração Ideal</span>
+                  <strong className="text-white">15 segundos</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-[#242730] bg-[#14161c] flex items-center justify-end gap-3">
+              <button
+                onClick={() => setSelectedTrendModal(null)}
+                className="px-4 py-2 text-xs text-slate-400 hover:text-white transition"
+              >
+                Fechar
+              </button>
+              <button
+                onClick={() => {
+                  const item = selectedTrendModal
+                  setSelectedTrendModal(null)
+                  onSelectTrend(item)
+                }}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-cyan-500 to-purple-600 hover:opacity-90 shadow-lg shadow-cyan-500/20 transition"
+              >
+                <Sparkles className="w-4 h-4" />
+                Criar vídeo com esta tendência no Estúdio
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
@@ -349,10 +597,12 @@ function TrendsSection({
 
 function StudioSection({
   initialIdea,
+  initialStyleName,
   styles,
   onOpenSettings,
 }: {
   initialIdea: string
+  initialStyleName?: string
   styles: VisualStyle[]
   onOpenSettings: () => void
 }) {
@@ -385,6 +635,19 @@ function StudioSection({
       setIdea(initialIdea)
     }
   }, [initialIdea])
+
+  useEffect(() => {
+    if (initialStyleName) {
+      const idx = styles.findIndex(
+        (s) =>
+          s.name.toLowerCase().includes(initialStyleName.toLowerCase()) ||
+          initialStyleName.toLowerCase().includes(s.name.toLowerCase())
+      )
+      if (idx !== -1) {
+        setSelectedStyleIndex(idx)
+      }
+    }
+  }, [initialStyleName, styles])
 
   const copy = (key: string, text: string) => {
     navigator.clipboard.writeText(text)
@@ -1071,6 +1334,7 @@ export default function CreatorDashboard() {
   const [tab, setTab] = useState<Tab>('trends')
   const [mobileOpen, setMobileOpen] = useState(false)
   const [selectedPromptIdea, setSelectedPromptIdea] = useState('')
+  const [selectedStyleName, setSelectedStyleName] = useState<string | undefined>()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [hasColabConfigured, setHasColabConfigured] = useState(false)
 
@@ -1079,8 +1343,12 @@ export default function CreatorDashboard() {
     setHasColabConfigured(Boolean(config.colabUrl))
   }, [isSettingsOpen])
 
-  const handleSelectTrend = (tag: string, insight: string) => {
-    setSelectedPromptIdea(`Tema viral: ${tag} — Foco de retenção: ${insight}`)
+  const handleSelectTrend = (trend: TrendItem) => {
+    const hookPrefix = trend.hookIdea ? `Gancho de Retenção (0-3s): "${trend.hookIdea}"\n\n` : ''
+    setSelectedPromptIdea(`${hookPrefix}Tema viral: ${trend.tag} — ${trend.topic || ''}\nFoco de retenção: ${trend.insight}`)
+    if (trend.visualStyleRecommended) {
+      setSelectedStyleName(trend.visualStyleRecommended)
+    }
     setTab('studio')
   }
 
@@ -1107,6 +1375,7 @@ export default function CreatorDashboard() {
         {tab === 'studio' && (
           <StudioSection
             initialIdea={selectedPromptIdea}
+            initialStyleName={selectedStyleName}
             styles={VISUAL_STYLES}
             onOpenSettings={() => setIsSettingsOpen(true)}
           />
