@@ -115,3 +115,20 @@ A aba **Métricas & Insights de IA** permite analisar o desempenho dos seus víd
 1. Selecione a opção **"Upload de CSV (TikTok Analytics)"**.
 2. Faça upload do arquivo `.csv` exportado do TikTok Creator Center (ou clique em **"Carregar CSV de Amostra"**).
 3. O **Performance Agent** extrai as colunas de retenção e gera 3 diagnósticos acionáveis para o seu próximo roteiro.
+
+---
+
+## 🎬 Biblioteca de Vídeos Salvos & Gerenciamento
+
+Todos os vídeos gerados no **Estúdio de Criação** são salvos automaticamente no seu navegador (`localStorage`).
+
+### Onde encontrar:
+1. **No menu lateral**: Clique na nova aba **"Vídeos Salvos"** (localizada logo abaixo de *Métricas & Insights*).
+2. **Na página de Métricas & Insights**: Role até o final da página para ver a seção **"Vídeos Salvos"** diretamente abaixo do diagnóstico do Agente de Retenção.
+
+### Ações disponíveis para cada vídeo:
+* ▶️ **Assistir**: Abre o player com o mockup de smartphone interativo.
+* ⬇️ **Baixar MP4**: Baixa o arquivo final renderizado em alta resolução.
+* 📋 **Copiar**: Copia o título com gatilho viral, descrição persuasiva e hashtags com 1 clique.
+* 🗑️ **Apagar**: Remove o vídeo da sua biblioteca instantaneamente.
+* 🧹 **Limpar Todos**: Remove todos os vídeos da biblioteca de uma só vez (com confirmação).

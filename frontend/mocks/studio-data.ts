@@ -1,4 +1,4 @@
-import { TrendItem, VisualStyle, MetricCardData, PerformanceTip, AgentInfo } from '@/types/studio'
+import { TrendItem, VisualStyle, MetricCardData, PerformanceTip, AgentInfo, SavedVideo } from '@/types/studio'
 
 export const MOCK_TRENDS: TrendItem[] = [
   {
@@ -211,5 +211,34 @@ export const MOCK_AGENTS: AgentInfo[] = [
     role: 'Diagnóstico de Métricas e Curva de Retenção',
     status: 'online',
     model: 'llama3.2:3b',
+  },
+]
+
+export const MOCK_SAVED_VIDEOS: SavedVideo[] = [
+  {
+    id: 'video-demo-1',
+    title: 'POV: Quando você descobre que IA pode gerar seu vídeo completo em 15 segundos',
+    description: "Descubra a tecnologia que está transformando criadores em máquinas virais. Comente 'TESTAR' para receber agora!",
+    hashtags: ['#fyp', '#viral', '#tecnologia', '#studioops', '#ia'],
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=800&q=85',
+    styleName: 'Cyberpunk',
+    duration: '15s',
+    voice: 'pt-BR-FranciscaNeural',
+    createdAt: 'Hoje às 19:30',
+    retentionScore: 92,
+  },
+  {
+    id: 'video-demo-2',
+    title: '3 Segredos para Prender a Atenção no TikTok nos Primeiros 3 Segundos',
+    description: 'A retenção inicial define se seu vídeo vai flopar ou bater 1 milhão de views. Salve para aplicar no seu próximo roteiro!',
+    hashtags: ['#dicasdetiktok', '#criadores', '#retencao', '#growth'],
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1535378917042-10a22c95931a?auto=format&fit=crop&w=800&q=85',
+    styleName: 'Pixar 3D',
+    duration: '15s',
+    voice: 'pt-BR-AntonioNeural',
+    createdAt: 'Ontem às 21:15',
+    retentionScore: 88,
   },
 ]

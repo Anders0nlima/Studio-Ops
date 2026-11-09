@@ -1,6 +1,20 @@
-export type Tab = 'trends' | 'studio' | 'metrics'
+export type Tab = 'trends' | 'studio' | 'metrics' | 'saved_videos'
 
 export type AccentColor = 'cyan' | 'pink' | 'purple' | 'amber'
+
+export interface SavedVideo {
+  id: string
+  title: string
+  description?: string
+  hashtags?: string[]
+  videoUrl: string
+  thumbnailUrl?: string
+  styleName: string
+  duration: '5s' | '10s' | '15s' | string
+  voice?: string
+  createdAt: string
+  retentionScore?: number
+}
 
 export interface TrendItem {
   id: string
@@ -24,7 +38,7 @@ export interface VisualStyle {
   description?: string
 }
 
-export type SceneType = 'hook' | 'body' | 'cta'
+export type SceneType = 'hook' | 'problem' | 'solution' | 'body' | 'cta'
 
 export interface ScriptScene {
   order: number

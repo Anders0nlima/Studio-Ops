@@ -7,8 +7,9 @@ import {
   PerformanceTip,
   TikTokVideoInfo,
   MetricsAnalysisResult,
+  SavedVideo,
 } from '@/types/studio'
-import { MOCK_TRENDS, MOCK_METRICS, MOCK_TIPS } from '@/mocks/studio-data'
+import { MOCK_TRENDS, MOCK_METRICS, MOCK_TIPS, MOCK_SAVED_VIDEOS } from '@/mocks/studio-data'
 
 export const DEFAULT_CONFIG: ConnectionConfig = {
   n8nUrl: 'http://localhost:5678',
@@ -38,6 +39,33 @@ export function saveStoredConfig(config: ConnectionConfig): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
   } catch (e) {
     console.warn('[StudioOps Config] Could not save localStorage:', e)
+  }
+}
+
+const SAVED_VIDEOS_STORAGE_KEY = 'studio_ops_saved_videos_v2'
+
+export function getStoredSavedVideos(): SavedVideo[] {
+  if (typeof window === 'undefined') return MOCK_SAVED_VIDEOS
+  try {
+    const raw = localStorage.getItem(SAVED_VIDEOS_STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed
+      }
+    }
+  } catch (e) {
+    console.warn('[StudioOps Videos] Could not read localStorage:', e)
+  }
+  return MOCK_SAVED_VIDEOS
+}
+
+export function saveStoredSavedVideos(videos: SavedVideo[]): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(SAVED_VIDEOS_STORAGE_KEY, JSON.stringify(videos))
+  } catch (e) {
+    console.warn('[StudioOps Videos] Could not save localStorage:', e)
   }
 }
 
@@ -172,12 +200,21 @@ export async function generateScriptApi(
     console.warn('[API Script] Error calling /api/generate-script, using local fallback:', err)
   }
 
-  // Graceful fallback strictly focused on the user's actual topic
+  // Graceful fallback strictly focused on the user's actual topic with 4 dynamic high-value scenes
   const cleanTopic = topic
     .replace(/^["“]|["”]$/g, '')
     .replace(/gancho.*?:/i, '')
     .replace(/tema.*?:/i, '')
     .trim()
+
+  const isFinance =
+    cleanTopic.toLowerCase().includes('dolar') ||
+    cleanTopic.toLowerCase().includes('dólar') ||
+    cleanTopic.toLowerCase().includes('reais') ||
+    cleanTopic.toLowerCase().includes('50') ||
+    cleanTopic.toLowerCase().includes('banco') ||
+    cleanTopic.toLowerCase().includes('invest') ||
+    cleanTopic.toLowerCase().includes('dinheiro')
 
   const fallbackScript: GeneratedScript = {
     topic: cleanTopic,
@@ -188,33 +225,66 @@ export async function generateScriptApi(
         order: 1,
         type: 'hook',
         timeRange: '0-3s',
-        narrationText: `Você sabia disso sobre ${cleanTopic}?`,
-        imagePromptEnglish: `Dramatic high contrast opening scene capturing ${cleanTopic}, stunning visual details, ${style.toLowerCase()} style, 8k render, vertical 9:16 aspect ratio`,
+        narrationText: isFinance
+          ? 'Se você tem 50 reais parados no banco, pare de perder dinheiro agora.'
+          : `Você sabia disso sobre ${cleanTopic}?`,
+        imagePromptEnglish: isFinance
+          ? `Cinematic macro close-up of real bank notes and coins on a dark wooden table with moody amber studio lighting, digital clock accelerating in background, ${style.toLowerCase()} style, photorealistic 8k, vertical 9:16 aspect ratio`
+          : `Dramatic high contrast opening scene capturing ${cleanTopic}, stunning visual details, ${style.toLowerCase()} style, 8k render, vertical 9:16 aspect ratio`,
       },
       {
         order: 2,
-        type: 'body',
-        timeRange: '3-12s',
-        narrationText: `Esse detalhe surpreendente sobre ${cleanTopic} muda completamente a forma como a maioria das pessoas enxerga o assunto.`,
-        imagePromptEnglish: `Detailed dynamic action scene illustrating ${cleanTopic}, rich volumetric lighting, ${style.toLowerCase()} style, cinematic 8k, vertical 9:16 aspect ratio`,
+        type: 'problem',
+        timeRange: '3-7s',
+        narrationText: isFinance
+          ? 'A inflação real no Brasil devora seu poder de compra em silêncio, enquanto o dólar valorizou mais de 300% na última década.'
+          : `A maioria das pessoas comete o erro clássico de focar no detalhe errado sobre ${cleanTopic}, desperdiçando tempo e esforço.`,
+        imagePromptEnglish: isFinance
+          ? `Dramatic high contrast visualization of inflation eroding paper currency into glowing red dust while an emerald green dollar index curve surges upward across Wall Street skyscrapers, ${style.toLowerCase()} style, volumetric lighting, vertical 9:16`
+          : `Detailed dynamic scene illustrating the hidden problem behind ${cleanTopic}, rich volumetric lighting, ${style.toLowerCase()} style, cinematic 8k, vertical 9:16 aspect ratio`,
       },
       {
         order: 3,
+        type: 'solution',
+        timeRange: '7-11s',
+        narrationText: isFinance
+          ? 'Com menos de 10 dólares você compra frações dos maiores ativos globais e começa a receber dividendos direto na sua conta.'
+          : `Quando você prioriza o fundamento prático de ${cleanTopic}, o resultado aparece três vezes mais rápido e com consistência.`,
+        imagePromptEnglish: isFinance
+          ? `Sleek modern smartphone held by an investor displaying an investment portfolio receiving incoming dollar dividend payments with glowing gold particles, ${style.toLowerCase()} style, depth of field, vertical 9:16`
+          : `Dynamic breakthrough scene revealing the practical solution for ${cleanTopic}, vibrant colors, ${style.toLowerCase()} aesthetic, vertical 9:16 aspect ratio`,
+      },
+      {
+        order: 4,
         type: 'cta',
-        timeRange: '12-15s',
-        narrationText: 'Qual a sua opinião sobre isso? Comente aqui embaixo!',
-        imagePromptEnglish: `Inspiring closing visual of ${cleanTopic} with dramatic cinematic lighting and lens flare, ${style.toLowerCase()} style, vertical 9:16`,
+        timeRange: '11-15s',
+        narrationText: isFinance
+          ? 'Qual foi o primeiro investimento que você fez na vida? Comente aqui embaixo que eu respondo todos!'
+          : 'Qual a sua opinião sobre isso? Comente aqui embaixo que eu quero saber!',
+        imagePromptEnglish: isFinance
+          ? `Prestigious modern vault door opening to reveal gleaming gold bars and global currency signs illuminated by atmospheric cinematic light flares, ${style.toLowerCase()} style, vertical 9:16`
+          : `Inspiring closing visual of ${cleanTopic} with dramatic cinematic lighting and lens flare, ${style.toLowerCase()} style, vertical 9:16`,
       },
     ],
-    fullNarration: `Você sabia disso sobre ${cleanTopic}? Esse detalhe surpreendente sobre ${cleanTopic} muda completamente a forma como a maioria das pessoas enxerga o assunto. Qual a sua opinião sobre isso? Comente aqui embaixo!`,
+    fullNarration: isFinance
+      ? 'Se você tem 50 reais parados no banco, pare de perder dinheiro agora. A inflação real no Brasil devora seu poder de compra em silêncio, enquanto o dólar valorizou mais de 300% na última década. Com menos de 10 dólares você compra frações dos maiores ativos globais e começa a receber dividendos direto na sua conta. Qual foi o primeiro investimento que você fez na vida? Comente aqui embaixo que eu respondo todos!'
+      : `Você sabia disso sobre ${cleanTopic}? A maioria das pessoas comete o erro clássico de focar no detalhe errado sobre ${cleanTopic}, desperdiçando tempo e esforço. Quando você prioriza o fundamento prático de ${cleanTopic}, o resultado aparece três vezes mais rápido e com consistência. Qual a sua opinião sobre isso? Comente aqui embaixo que eu quero saber!`,
   }
 
   const fallbackGrowth: GrowthMetadata = {
-    title: `A verdade impressionante sobre ${cleanTopic.slice(0, 45)}`,
-    description: `Descubra a história e os segredos por trás de ${cleanTopic}. O que você acha? Comente abaixo! #viral`,
-    hashtags: ['#fyp', '#viral', '#curiosidades', '#aprendanotiktok', '#fatos'],
-    callToActionQuestion: 'Você concorda com isso?',
-    suggestedAudioVibe: 'Cinematic Trending Bass 120BPM',
+    title: isFinance
+      ? 'O segredo de quem faz 50 reais renderem em dólar'
+      : `A verdade impressionante sobre ${cleanTopic.slice(0, 45)}`,
+    description: isFinance
+      ? 'Pare de deixar dinheiro parado na poupança perdendo para a inflação! Conheça a estratégia de dolarização com aportes pequenos. Comente se você já investe! #financas #dolar #investimentos'
+      : `Descubra a história e os segredos por trás de ${cleanTopic}. O que você acha? Comente abaixo! #viral`,
+    hashtags: isFinance
+      ? ['#financas', '#investimentos', '#dolar', '#rendapassiva', '#dinheiro', '#educacaofinanceira', '#viral']
+      : ['#fyp', '#viral', '#curiosidades', '#aprendanotiktok', '#fatos'],
+    callToActionQuestion: isFinance
+      ? 'Qual foi o primeiro investimento da sua vida?'
+      : 'Você concorda com isso?',
+    suggestedAudioVibe: isFinance ? 'Deep Ambient Lo-Fi Chillwave 90BPM' : 'Cinematic Trending Bass 120BPM',
   }
 
   return { script: fallbackScript, growth: fallbackGrowth, source: 'mock_fallback' }

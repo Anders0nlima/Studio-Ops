@@ -47,11 +47,15 @@ class VideoEngine:
                 CompositeVideoClip,
             )
 
-            # Define scene timings for 15s standard retention
-            # Scene 1 (Hook): 3.0s | Scene 2 (Body): 9.0s | Scene 3 (CTA): 3.0s
-            durations = [3.0, 9.0, 3.0]
-            if len(image_paths) != 3:
-                # Distribute evenly if not exactly 3 images
+            # Define scene timings for high retention TikTok pacing
+            if len(image_paths) == 4:
+                # 4-scene micro-framework: Hook (3s), Problem (4s), Solution (4s), CTA (4s)
+                durations = [3.0, 4.0, 4.0, 4.0]
+            elif len(image_paths) == 3:
+                # 3-scene structure: Hook (3s), Body (8s), CTA (4s)
+                durations = [3.0, 8.0, 4.0]
+            else:
+                # Distribute evenly if custom count
                 durations = [total_duration / len(image_paths)] * len(image_paths)
 
             scene_clips = []

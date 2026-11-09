@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   BarChart3,
   Bell,
@@ -30,6 +30,10 @@ import {
   FileText,
   Link2,
   Smartphone,
+  Trash2,
+  Download,
+  Clock,
+  PlaySquare,
 } from 'lucide-react'
 
 import {
@@ -44,6 +48,7 @@ import {
   GrowthMetadata,
   ConnectionConfig,
   TikTokVideoInfo,
+  SavedVideo,
 } from '@/types/studio'
 import {
   MOCK_TRENDS,
@@ -51,6 +56,7 @@ import {
   MOCK_METRICS,
   MOCK_TIPS,
   MOCK_AGENTS,
+  MOCK_SAVED_VIDEOS,
 } from '@/mocks/studio-data'
 import {
   fetchTrendsApi,
@@ -59,10 +65,13 @@ import {
   pollJobStatusApi,
   analyzeMetricsApi,
   getStoredConfig,
+  getStoredSavedVideos,
+  saveStoredSavedVideos,
 } from '@/services/api'
 import { VideoPlayer } from './video-player'
 import { StatusStepper } from './status-stepper'
 import { SettingsModal } from './settings-modal'
+import { StudioOpsLogo } from './studio-ops-logo'
 
 /* =========================================================================
    1. SIDEBAR COMPONENT
@@ -76,6 +85,7 @@ interface SidebarProps {
   agents: AgentInfo[]
   onOpenSettings: () => void
   hasColabConfigured: boolean
+  savedVideosCount?: number
 }
 
 function Sidebar({
@@ -86,11 +96,20 @@ function Sidebar({
   agents,
   onOpenSettings,
   hasColabConfigured,
+  savedVideosCount,
 }: SidebarProps) {
+  const [workspaceOpen, setWorkspaceOpen] = useState(true)
+
   const items = [
     { id: 'trends' as Tab, label: 'Tendências do Dia', icon: TrendingUp },
     { id: 'studio' as Tab, label: 'Estúdio de Criação', icon: WandSparkles },
     { id: 'metrics' as Tab, label: 'Métricas & Insights', icon: BarChart3 },
+    {
+      id: 'saved_videos' as Tab,
+      label: 'Vídeos Salvos',
+      icon: Film,
+      count: savedVideosCount,
+    },
   ]
 
   const onlineCount = agents.filter((a) => a.status === 'online').length
@@ -105,13 +124,8 @@ function Sidebar({
         />
       )}
       <aside className={`sidebar ${mobileOpen ? 'sidebar-open' : ''}`}>
-        <div className="brand">
-          <div className="brand-mark">
-            <Sparkles />
-          </div>
-          <span>
-            studio<span className="brand-accent">ops</span>
-          </span>
+        <div className="brand" style={{ padding: '0 8px 24px' }}>
+          <StudioOpsLogo variant="horizontal" size={32} animated />
           <button
             className="mobile-close"
             onClick={() => setMobileOpen(false)}
@@ -121,35 +135,56 @@ function Sidebar({
           </button>
         </div>
 
-        <div className="workspace">
-          <div className="workspace-avatar">SO</div>
-          <div>
-            <strong>StudioOps Core</strong>
-            <small>Workspace autônomo</small>
-          </div>
-          <ChevronDown className="workspace-chevron" />
-        </div>
+        <div className="workspace-container">
+          <button
+            type="button"
+            className={`workspace ${workspaceOpen ? 'workspace-open' : ''}`}
+            onClick={() => setWorkspaceOpen((prev) => !prev)}
+            aria-expanded={workspaceOpen}
+            aria-controls="workspace-nav"
+            title={workspaceOpen ? 'Recolher menu do Workspace' : 'Expandir menu do Workspace'}
+          >
+            <div className="workspace-avatar" style={{ padding: 0, background: 'none' }}>
+              <StudioOpsLogo variant="emblem" size={28} />
+            </div>
+            <div>
+              <strong>StudioOps Core</strong>
+              <small>Workspace autônomo</small>
+            </div>
+            <ChevronDown className="workspace-chevron" />
+          </button>
 
-        <nav className="nav-list" aria-label="Navegação principal">
-          <span className="nav-label">Workspace</span>
-          {items.map((item) => {
-            const Icon = item.icon
-            return (
-              <button
-                key={item.id}
-                className={`nav-item ${tab === item.id ? 'active' : ''}`}
-                onClick={() => {
-                  setTab(item.id)
-                  setMobileOpen(false)
-                }}
-              >
-                <Icon />
-                <span>{item.label}</span>
-                {item.id === 'trends' && <span className="new-dot" />}
-              </button>
-            )
-          })}
-        </nav>
+          <div
+            id="workspace-nav"
+            className={`workspace-collapse ${workspaceOpen ? 'open' : ''}`}
+          >
+            <div className="workspace-collapse-inner">
+              <nav className="nav-list" aria-label="Navegação principal">
+                <span className="nav-label">Navegação</span>
+                {items.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <button
+                      key={item.id}
+                      className={`nav-item ${tab === item.id ? 'active' : ''}`}
+                      onClick={() => {
+                        setTab(item.id)
+                        setMobileOpen(false)
+                      }}
+                    >
+                      <Icon />
+                      <span>{item.label}</span>
+                      {item.id === 'trends' && <span className="new-dot" />}
+                      {item.id === 'saved_videos' && typeof item.count === 'number' && item.count > 0 && (
+                        <span className="count-badge">{item.count}</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </nav>
+            </div>
+          </div>
+        </div>
 
         <div className="sidebar-bottom">
           <div className="agent-status" onClick={onOpenSettings} role="button" tabIndex={0}>
@@ -220,6 +255,10 @@ function Header({
     metrics: [
       'Métricas & Insights de IA',
       'Analise a retenção de 0-3 segundos via CSV e receba diagnósticos automáticos.',
+    ],
+    saved_videos: [
+      'Vídeos Salvos',
+      'Gerencie, reproduza, baixe ou exclua os vídeos gerados com IA no seu estúdio.',
     ],
   }
 
@@ -598,16 +637,195 @@ function TrendsSection({ onSelectTrend }: TrendsSectionProps) {
    4. STUDIO SECTION (END-TO-END AUTOMATED PIPELINE)
    ========================================================================= */
 
+function getInitialScriptPreview(rawIdea: string, styleName: string = 'Cinematic'): GeneratedScript {
+  const lower = rawIdea.toLowerCase()
+  const s = styleName.toLowerCase()
+
+  // 1. Finanças / 50 Reais / Dólar / Investimentos
+  if (
+    lower.includes('finan') ||
+    lower.includes('dolar') ||
+    lower.includes('dólar') ||
+    lower.includes('reais') ||
+    lower.includes('50') ||
+    lower.includes('banco') ||
+    lower.includes('invest') ||
+    lower.includes('dinheiro') ||
+    lower.includes('renda')
+  ) {
+    return {
+      topic: 'Investimentos em Dólar e Renda Passiva',
+      styleName,
+      duration: '15s',
+      scenes: [
+        {
+          order: 1,
+          type: 'hook',
+          timeRange: '0-3s',
+          narrationText: 'Se você tem 50 reais parados no banco, pare de perder dinheiro agora.',
+          imagePromptEnglish: `Cinematic macro close-up of real bank notes and coins on a dark wooden table with moody amber studio lighting, digital clock accelerating in background, ${s} style, photorealistic 8k, vertical 9:16 aspect ratio`,
+        },
+        {
+          order: 2,
+          type: 'problem',
+          timeRange: '3-7s',
+          narrationText: 'A inflação real no Brasil devora seu poder de compra em silêncio, enquanto o dólar valorizou mais de 300% na última década.',
+          imagePromptEnglish: `Dramatic high contrast visualization of inflation eroding paper currency into glowing red dust while an emerald green dollar index curve surges upward across Wall Street skyscrapers, ${s} style, volumetric lighting, vertical 9:16`,
+        },
+        {
+          order: 3,
+          type: 'solution',
+          timeRange: '7-11s',
+          narrationText: 'Com menos de 10 dólares você compra frações dos maiores ativos globais e começa a receber dividendos direto na sua conta.',
+          imagePromptEnglish: `Sleek modern smartphone held by an investor displaying an investment portfolio receiving incoming dollar dividend payments with glowing gold particles, ${s} style, depth of field, vertical 9:16`,
+        },
+        {
+          order: 4,
+          type: 'cta',
+          timeRange: '11-15s',
+          narrationText: 'Qual foi o primeiro investimento que você fez na vida? Comente aqui embaixo que eu respondo todos!',
+          imagePromptEnglish: `Prestigious modern vault door opening to reveal gleaming gold bars and global currency signs illuminated by atmospheric cinematic light flares, ${s} style, vertical 9:16`,
+        },
+      ],
+      fullNarration:
+        'Se você tem 50 reais parados no banco, pare de perder dinheiro agora. A inflação real no Brasil devora seu poder de compra em silêncio, enquanto o dólar valorizou mais de 300% na última década. Com menos de 10 dólares você compra frações dos maiores ativos globais e começa a receber dividendos direto na sua conta. Qual foi o primeiro investimento que você fez na vida? Comente aqui embaixo que eu respondo todos!',
+    }
+  }
+
+  // 2. Canadá / Viagens
+  if (lower.includes('canada') || lower.includes('canadá') || lower.includes('viagem') || lower.includes('travel')) {
+    return {
+      topic: 'A vida real no Canadá',
+      styleName,
+      duration: '15s',
+      scenes: [
+        {
+          order: 1,
+          type: 'hook',
+          timeRange: '0-3s',
+          narrationText: 'Três segredos sobre a vida no Canadá que ninguém te conta.',
+          imagePromptEnglish: `Breathtaking high quality vertical shot of picturesque snow-covered streets in Quebec Canada at twilight, glowing lanterns, cozy snowfall, ${s} style, cinematic 8k, vertical 9:16 aspect ratio`,
+        },
+        {
+          order: 2,
+          type: 'problem',
+          timeRange: '3-7s',
+          narrationText: 'O inverno a menos trinta e cinco graus congela seus cílios em dois minutos e transforma sair de casa em uma expedição polar.',
+          imagePromptEnglish: `Extreme macro close-up of winter traveler face with frozen frosted eyelashes and warm wool scarf under sub-zero blizzard, ${s} style, vertical 9:16`,
+        },
+        {
+          order: 3,
+          type: 'solution',
+          timeRange: '7-11s',
+          narrationText: 'Em compensação, o poder de compra com salário mínimo e a vista surreal dos lagos de Banff fazem tudo valer a pena.',
+          imagePromptEnglish: `Stunning vertical landscape of Lake Louise Banff Canada, emerald glacial turquoise water surrounded by towering snow-capped Rocky Mountains, ${s} style, 8k photography, vertical 9:16 aspect ratio`,
+        },
+        {
+          order: 4,
+          type: 'cta',
+          timeRange: '11-15s',
+          narrationText: 'Você teria coragem de encarar esse inverno congelante? Deixe sua resposta nos comentários!',
+          imagePromptEnglish: `Cozy Canadian wooden mountain cabin under glowing green Northern Lights aurora borealis in starry night sky, ${s} style, vertical 9:16`,
+        },
+      ],
+      fullNarration:
+        'Três segredos sobre a vida no Canadá que ninguém te conta. O inverno a menos trinta e cinco graus congela seus cílios em dois minutos e transforma sair de casa em uma expedição polar. Em compensação, o poder de compra com salário mínimo e a vista surreal dos lagos de Banff fazem tudo valer a pena. Você teria coragem de encarar esse inverno congelante? Deixe sua resposta nos comentários!',
+    }
+  }
+
+  // 3. Soccer / Futebol
+  if (lower.includes('socc') || lower.includes('futebol') || lower.includes('gol')) {
+    return {
+      topic: 'O chute que desafiou as leis da física no futebol',
+      styleName,
+      duration: '15s',
+      scenes: [
+        {
+          order: 1,
+          type: 'hook',
+          timeRange: '0-3s',
+          narrationText: 'O chute que desafiou as leis da física e chocou o mundo inteiro.',
+          imagePromptEnglish: `Dramatic high-speed macro action close-up of soccer boot striking glowing soccer ball with immense kinetic power, flying grass particles, stadium floodlights, ${s} style, 8k, photorealistic vertical 9:16 aspect ratio`,
+        },
+        {
+          order: 2,
+          type: 'problem',
+          timeRange: '3-7s',
+          narrationText: 'Goleiros de elite admitem que chutes com efeito Magnus externo são impossíveis de calcular em frações de segundo.',
+          imagePromptEnglish: `Spectacular wide view behind the goal showing ball curving in an impossible aerodynamic trajectory past the goalkeeper hands, ${s} style, vertical 9:16`,
+        },
+        {
+          order: 3,
+          type: 'solution',
+          timeRange: '7-11s',
+          narrationText: 'A rotação milimétrica a mais de 115 km/h faz a bola contornar a barreira e mergulhar direto no ângulo morto.',
+          imagePromptEnglish: `Cinematic 3D scientific vector overlay visualizing airflow aerodynamic turbulence around rotating soccer ball, ${s} style, vertical 9:16`,
+        },
+        {
+          order: 4,
+          type: 'cta',
+          timeRange: '11-15s',
+          narrationText: 'Qual foi o gol de falta mais inacreditável da história? Deixe seu voto nos comentários!',
+          imagePromptEnglish: `Glorious golden champion trophy under dramatic atmospheric stadium lens flare with falling confetti, ${s} style, vertical 9:16`,
+        },
+      ],
+      fullNarration:
+        'O chute que desafiou as leis da física e chocou o mundo inteiro. Goleiros de elite admitem que chutes com efeito Magnus externo são impossíveis de calcular em frações de segundo. A rotação milimétrica a mais de 115 km/h faz a bola contornar a barreira e mergulhar direto no ângulo morto. Qual foi o gol de falta mais inacreditável da história? Deixe seu voto nos comentários!',
+    }
+  }
+
+  // 4. Padrão Adaptativo com 4 Cenas Dinâmicas
+  const topicLabel = rawIdea ? rawIdea.slice(0, 45) : 'Como a inteligência artificial cria vídeos em segundos'
+  return {
+    topic: topicLabel,
+    styleName,
+    duration: '15s',
+    scenes: [
+      {
+        order: 1,
+        type: 'hook',
+        timeRange: '0-3s',
+        narrationText: `Você sabia que quase tudo que te contaram sobre ${topicLabel} tem um lado oculto?`,
+        imagePromptEnglish: `High-impact striking opening visual capturing ${topicLabel}, dramatic atmospheric composition, cinematic lighting, ${s} style, 8k render, vertical 9:16 aspect ratio`,
+      },
+      {
+        order: 2,
+        type: 'problem',
+        timeRange: '3-7s',
+        narrationText: 'A maioria comete o erro clássico de tentar o caminho tradicional sem entender a mecânica real do assunto.',
+        imagePromptEnglish: `Intense visual revealing the core challenge behind ${topicLabel}, dark moody contrast, ${s} style, vertical 9:16`,
+      },
+      {
+        order: 3,
+        type: 'solution',
+        timeRange: '7-11s',
+        narrationText: 'Quando você inverte a lógica e prioriza o fundamento prático, o resultado aparece três vezes mais rápido.',
+        imagePromptEnglish: `Dynamic breakthrough scene revealing the practical solution for ${topicLabel}, rich vibrant lighting, ${s} aesthetic, vertical 9:16 aspect ratio`,
+      },
+      {
+        order: 4,
+        type: 'cta',
+        timeRange: '11-15s',
+        narrationText: 'Qual a sua opinião sobre isso? Comente aqui embaixo que eu quero saber!',
+        imagePromptEnglish: `Inspiring conclusion scene highlighting the impact of ${topicLabel}, cinematic lens flare and warm glow, ${s} style, vertical 9:16`,
+      },
+    ],
+    fullNarration: `Você sabia que quase tudo que te contaram sobre ${topicLabel} tem um lado oculto? A maioria comete o erro clássico de tentar o caminho tradicional sem entender a mecânica real do assunto. Quando você inverte a lógica e prioriza o fundamento prático, o resultado aparece três vezes mais rápido. Qual a sua opinião sobre isso? Comente aqui embaixo que eu quero saber!`,
+  }
+}
+
 function StudioSection({
   initialIdea,
   initialStyleName,
   styles,
   onOpenSettings,
+  onSaveVideo,
 }: {
   initialIdea: string
   initialStyleName?: string
   styles: VisualStyle[]
   onOpenSettings: () => void
+  onSaveVideo?: (video: SavedVideo) => void
 }) {
   const [idea, setIdea] = useState(initialIdea)
   const [selectedStyleIndex, setSelectedStyleIndex] = useState(0)
@@ -620,24 +838,81 @@ function StudioSection({
   const [progress, setProgress] = useState(0)
   const [errorMessage, setErrorMessage] = useState<string | undefined>()
 
+  // Active Output Tab: 'seo' (Metadata) or 'script' (4-Scene Detailed Teleprompter)
+  const [activeOutputTab, setActiveOutputTab] = useState<'seo' | 'script'>('seo')
+
+  // Initial contextual content based on the initial idea
+  const initialPreview = getInitialScriptPreview(initialIdea || '', styles[0]?.name || 'Cinematic')
+  const [currentScript, setCurrentScript] = useState<GeneratedScript | null>(initialPreview)
+
   // Generated Outputs
-  const [generatedTitle, setGeneratedTitle] = useState(
-    'POV: Quando você descobre que IA pode gerar seu vídeo completo em segundos'
-  )
-  const [generatedDesc, setGeneratedDesc] = useState(
-    "Descubra a tecnologia que está transformando criadores em fenômenos virais. Comente 'TESTAR' para receber agora! #TikTok #CreatorEconomy"
-  )
-  const [generatedTags, setGeneratedTags] = useState(
-    '#fyp #viral #trending #ia #criatividade #studioops #automacao'
-  )
+  const [generatedTitle, setGeneratedTitle] = useState(() => {
+    if (initialIdea && (initialIdea.includes('50') || initialIdea.includes('dolar') || initialIdea.includes('invest'))) {
+      return 'O segredo de quem faz 50 reais renderem em dólar'
+    }
+    return 'POV: Quando você descobre como viralizar no TikTok com roteiros densos'
+  })
+  const [generatedDesc, setGeneratedDesc] = useState(() => {
+    if (initialIdea && (initialIdea.includes('50') || initialIdea.includes('dolar') || initialIdea.includes('invest'))) {
+      return 'Pare de deixar dinheiro parado na poupança perdendo para a inflação! Conheça a estratégia de dolarização com aportes pequenos. Comente se você já investe! #financas #dolar #investimentos'
+    }
+    return "Descubra a estrutura de 4 cenas que retém a audiência até o último segundo. Comente 'QUERO' para acessar o framework! #Growth #TikTok"
+  })
+  const [generatedTags, setGeneratedTags] = useState(() => {
+    if (initialIdea && (initialIdea.includes('50') || initialIdea.includes('dolar') || initialIdea.includes('invest'))) {
+      return '#financas #investimentos #dolar #rendapassiva #dinheiro #educacaofinanceira #viral'
+    }
+    return '#fyp #viral #trending #estrategia #conteudo #crescimento #criatividade'
+  })
   const [videoUrl, setVideoUrl] = useState<string | undefined>()
   const [copiedKey, setCopiedKey] = useState('')
+  const [isSavedLocally, setIsSavedLocally] = useState(false)
+  const pollingTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (pollingTimerRef.current) {
+        clearTimeout(pollingTimerRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (initialIdea) {
       setIdea(initialIdea)
+      const preview = getInitialScriptPreview(initialIdea, styles[selectedStyleIndex]?.name || 'Cinematic')
+      setCurrentScript(preview)
+
+      const isFin =
+        initialIdea.toLowerCase().includes('dolar') ||
+        initialIdea.toLowerCase().includes('dólar') ||
+        initialIdea.toLowerCase().includes('reais') ||
+        initialIdea.toLowerCase().includes('50') ||
+        initialIdea.toLowerCase().includes('banco') ||
+        initialIdea.toLowerCase().includes('invest') ||
+        initialIdea.toLowerCase().includes('dinheiro')
+
+      if (isFin) {
+        setGeneratedTitle('O segredo de quem faz 50 reais renderem em dólar')
+        setGeneratedDesc(
+          'Pare de deixar dinheiro parado na poupança perdendo para a inflação! Conheça a estratégia de dolarização com aportes pequenos. Comente se você já investe! #financas #dolar #investimentos'
+        )
+        setGeneratedTags('#financas #investimentos #dolar #rendapassiva #dinheiro #educacaofinanceira #viral')
+      } else if (initialIdea.toLowerCase().includes('canada') || initialIdea.toLowerCase().includes('canadá')) {
+        setGeneratedTitle('A vida real no Canadá que ninguém te mostra')
+        setGeneratedDesc(
+          'Você teria coragem de encarar -35°C? Conheça as paisagens mais surreais e o choque cultural de morar no Canadá. Comente se você moraria lá! #canada #viagem #intercambio'
+        )
+        setGeneratedTags('#canada #viagem #intercambio #morarfora #inverno #curiosidades #viral')
+      } else if (initialIdea.toLowerCase().includes('socc') || initialIdea.toLowerCase().includes('futebol')) {
+        setGeneratedTitle('O chute que desafiou as leis da física no futebol')
+        setGeneratedDesc(
+          'Você lembra dessa falta lendária? A curva aerodinâmica que cientistas tentam explicar até hoje. Comente seu gol favorito! #futebol #soccer'
+        )
+        setGeneratedTags('#futebol #soccer #gols #championsleague #skills #esporte #viral')
+      }
     }
-  }, [initialIdea])
+  }, [initialIdea, styles, selectedStyleIndex])
 
   useEffect(() => {
     if (initialStyleName) {
@@ -687,6 +962,9 @@ function StudioSection({
         setGeneratedDesc(scriptResult.growth.description)
         setGeneratedTags(scriptResult.growth.hashtags.join(' '))
       }
+      if (scriptResult.script) {
+        setCurrentScript(scriptResult.script)
+      }
 
       // Step 2: Dispatch to Colab Media Engine
       setPipelineStep('dispatching_colab')
@@ -700,8 +978,12 @@ function StudioSection({
         config.colabUrl
       )
 
+      if (pollingTimerRef.current) {
+        clearTimeout(pollingTimerRef.current)
+      }
+
       if (dispatchResult.source === 'colab_live' && dispatchResult.jobId) {
-        // Step 3: Poll Colab Job until Finished
+        // Step 3: Poll Colab Job until Finished with sequential setTimeout (prevents multiple duplicate triggers)
         setPipelineStep('rendering_video')
         setStatusMessage('Renderizando MP4 com MoviePy e efeitos de zoom contínuo...')
         setProgress(75)
@@ -709,21 +991,48 @@ function StudioSection({
         const jobId = dispatchResult.jobId
         let attempts = 0
         const maxAttempts = 80 // 280 seconds max
+        let isDone = false
+        let hasSavedVideo = false
 
-        const pollInterval = setInterval(async () => {
+        const pollStatus = async () => {
+          if (isDone) return
           attempts++
           try {
             const statusRes = await pollJobStatusApi(jobId, config.colabUrl)
+            if (isDone) return
+
             if (statusRes.status === 'completed' && statusRes.videoUrl) {
-              clearInterval(pollInterval)
+              isDone = true
               setProgress(100)
               setVideoUrl(statusRes.videoUrl)
               setPipelineStep('completed')
               setStatusMessage('🎉 Vídeo vertical 9:16 renderizado com sucesso!')
+              setIsSavedLocally(true)
+
+              if (!hasSavedVideo) {
+                hasSavedVideo = true
+                onSaveVideo?.({
+                  id: `vid-${jobId}`,
+                  title: generatedTitle,
+                  description: generatedDesc,
+                  hashtags: generatedTags.split(' ').filter(Boolean),
+                  videoUrl: statusRes.videoUrl,
+                  thumbnailUrl: styles[selectedStyleIndex]?.promptKeywords.includes('cyberpunk')
+                    ? 'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=800&q=85'
+                    : 'https://images.unsplash.com/photo-1535378917042-10a22c95931a?auto=format&fit=crop&w=800&q=85',
+                  styleName: styles[selectedStyleIndex]?.name || 'Cyberpunk',
+                  duration,
+                  voice: voice.split(' ')[0],
+                  createdAt: 'Agora mesmo',
+                  retentionScore: 92,
+                })
+              }
+              return
             } else if (statusRes.status === 'error') {
-              clearInterval(pollInterval)
+              isDone = true
               setPipelineStep('error')
               setErrorMessage(statusRes.error || 'Erro durante a renderização no Colab.')
+              return
             } else {
               // Update progressive feedback
               const dynamicProgress = Math.min(95, 75 + Math.floor(attempts * 1.2))
@@ -735,27 +1044,55 @@ function StudioSection({
           }
 
           if (attempts >= maxAttempts) {
-            clearInterval(pollInterval)
+            isDone = true
             setPipelineStep('error')
             setErrorMessage(
               'Tempo limite de renderização atingido. Verifique se o Colab está ativo e com o Ngrok conectado.'
             )
+            return
           }
-        }, 3500)
+
+          if (!isDone) {
+            pollingTimerRef.current = setTimeout(pollStatus, 3500)
+          }
+        }
+
+        pollingTimerRef.current = setTimeout(pollStatus, 2000)
       } else {
-        // Fallback simulation: local preview video
-        setTimeout(() => {
+        // Fallback simulation: local preview video (executes exactly once)
+        const simJobId = dispatchResult.jobId || `sim-${Date.now()}`
+        let hasSavedSim = false
+
+        pollingTimerRef.current = setTimeout(() => {
           setPipelineStep('rendering_video')
           setStatusMessage('Finalizando mixagem de áudio e vídeo...')
           setProgress(90)
 
-          setTimeout(() => {
+          pollingTimerRef.current = setTimeout(() => {
             setProgress(100)
             setPipelineStep('completed')
             setStatusMessage('Vídeo demonstrativo gerado com sucesso!')
-            setVideoUrl(
+            const sampleUrl =
               'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
-            )
+            setVideoUrl(sampleUrl)
+            setIsSavedLocally(true)
+
+            if (!hasSavedSim) {
+              hasSavedSim = true
+              onSaveVideo?.({
+                id: `vid-${simJobId}`,
+                title: generatedTitle,
+                description: generatedDesc,
+                hashtags: generatedTags.split(' ').filter(Boolean),
+                videoUrl: sampleUrl,
+                thumbnailUrl: 'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=800&q=85',
+                styleName: styles[selectedStyleIndex]?.name || 'Cyberpunk',
+                duration,
+                voice: voice.split(' ')[0],
+                createdAt: 'Agora mesmo',
+                retentionScore: 90,
+              })
+            }
           }, 2000)
         }, 2500)
       }
@@ -932,31 +1269,172 @@ function StudioSection({
               />
             )}
 
-            {/* Dynamic Copy Fields (Growth Hacker Output) */}
+            {/* Dynamic Copy Fields & Script Teleprompter */}
             <div className="copy-fields">
-              <CopyField
-                label="Título com Gatilho Viral (SEO)"
-                value={generatedTitle}
-                name="title"
-                copied={copiedKey}
-                onCopy={copy}
-              />
+              {/* Tab Selector between SEO & Script */}
+              <div className="flex items-center gap-1.5 mb-3 p-1 rounded-xl bg-neutral-900/90 border border-white/10">
+                <button
+                  type="button"
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition ${
+                    activeOutputTab === 'seo'
+                      ? 'bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/40 shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  onClick={() => setActiveOutputTab('seo')}
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> Metadados & SEO
+                </button>
+                <button
+                  type="button"
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition ${
+                    activeOutputTab === 'script'
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  onClick={() => setActiveOutputTab('script')}
+                >
+                  <Film className="w-3.5 h-3.5" /> Roteiro ({currentScript?.scenes?.length || 4} Cenas)
+                </button>
+              </div>
 
-              <CopyField
-                label="Descrição de Alta Conversão"
-                value={generatedDesc}
-                name="description"
-                copied={copiedKey}
-                onCopy={copy}
-              />
+              {activeOutputTab === 'seo' ? (
+                <>
+                  <CopyField
+                    label="Título com Gatilho Viral (SEO)"
+                    value={generatedTitle}
+                    name="title"
+                    copied={copiedKey}
+                    onCopy={copy}
+                  />
 
-              <CopyField
-                label="Hashtags Estratégicas do Growth Hacker"
-                value={generatedTags}
-                name="hashtags"
-                copied={copiedKey}
-                onCopy={copy}
-              />
+                  <CopyField
+                    label="Descrição de Alta Conversão"
+                    value={generatedDesc}
+                    name="description"
+                    copied={copiedKey}
+                    onCopy={copy}
+                  />
+
+                  <CopyField
+                    label="Hashtags Estratégicas do Growth Hacker"
+                    value={generatedTags}
+                    name="hashtags"
+                    copied={copiedKey}
+                    onCopy={copy}
+                  />
+                </>
+              ) : (
+                <div className="script-teleprompter-box flex flex-col gap-3">
+                  {/* Top Narration Card (Teleprompter) */}
+                  <div className="p-3.5 rounded-xl bg-gradient-to-br from-purple-950/40 to-neutral-900 border border-purple-500/30">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <Zap className="w-3 h-3 text-purple-400" /> Narração Contínua ({duration} • {currentScript?.fullNarration?.split(' ').length || 45} palavras)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copy('fullNarration', currentScript?.fullNarration || '')}
+                        className="flex items-center gap-1 text-[11px] font-medium text-purple-300 hover:text-white bg-purple-500/20 px-2 py-0.5 rounded transition"
+                        title="Copiar texto para ler como teleprompter"
+                      >
+                        {copiedKey === 'fullNarration' ? (
+                          <span className="text-emerald-400 flex items-center gap-1">
+                            <Check className="w-3 h-3" /> Copiado!
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            <Clipboard className="w-3 h-3" /> Copiar Narração
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-200 leading-relaxed font-normal">
+                      "{currentScript?.fullNarration}"
+                    </p>
+                    <div className="mt-2 text-[10px] text-purple-400/80 flex items-center gap-1">
+                      <span>⚡ Ritmo calculado: ~3.0 palavras/segundo (Padrão de Alta Retenção TikTok)</span>
+                    </div>
+                  </div>
+
+                  {/* Scene-by-Scene Cards */}
+                  <div className="flex flex-col gap-2 max-h-[340px] overflow-y-auto pr-1">
+                    {currentScript?.scenes.map((scene) => (
+                      <div
+                        key={scene.order}
+                        className="p-3 rounded-lg bg-neutral-900/80 border border-white/10 hover:border-white/20 transition flex flex-col gap-1.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-white">
+                              Cena {scene.order}
+                            </span>
+                            <span className="text-[10px] font-semibold text-cyan-400">
+                              ⏱️ {scene.timeRange}
+                            </span>
+                            <span className="text-[10px] font-medium text-slate-400 capitalize">
+                              • {scene.type === 'hook' ? 'Gancho Viral' : scene.type === 'problem' ? 'Problema / Dado' : scene.type === 'solution' ? 'Solução Prática' : scene.type === 'cta' ? 'Chamada de Ação' : 'Miolo'}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => copy(`prompt-${scene.order}`, scene.imagePromptEnglish)}
+                            className="text-[10px] text-slate-400 hover:text-cyan-300 transition flex items-center gap-1"
+                            title="Copiar prompt SDXL desta cena"
+                          >
+                            {copiedKey === `prompt-${scene.order}` ? (
+                              <span className="text-emerald-400">Copiado!</span>
+                            ) : (
+                              <span>Copiar Prompt</span>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Narration */}
+                        <p className="text-xs text-white font-medium">
+                          "{scene.narrationText}"
+                        </p>
+
+                        {/* Visual Prompt for SDXL */}
+                        <div className="p-2 rounded bg-black/40 border border-white/5 text-[10px] text-slate-400 line-clamp-2">
+                          <span className="text-[#00f2fe]/80 font-mono font-semibold">Prompt IA: </span>
+                          {scene.imagePromptEnglish}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {videoUrl && (
+                <div className="mt-3 flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
+                  <div className="flex items-center gap-2 text-xs">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                    <span className="text-white font-medium">Vídeo salvo na Biblioteca</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="saved-action-btn primary text-xs py-1 px-3"
+                    onClick={() => {
+                      onSaveVideo?.({
+                        id: `vid-${Date.now()}`,
+                        title: generatedTitle,
+                        description: generatedDesc,
+                        hashtags: generatedTags.split(' ').filter(Boolean),
+                        videoUrl: videoUrl,
+                        thumbnailUrl: 'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=800&q=85',
+                        styleName: styles[selectedStyleIndex]?.name || 'Cyberpunk',
+                        duration,
+                        voice: voice.split(' ')[0],
+                        createdAt: 'Agora mesmo',
+                        retentionScore: 92,
+                      })
+                      setIsSavedLocally(true)
+                    }}
+                  >
+                    <Film className="h-3.5 w-3.5" /> Salvar Novamente
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1058,9 +1536,17 @@ function CopyField({
 function MetricsSection({
   initialMetrics,
   initialTips,
+  savedVideos,
+  onDeleteVideo,
+  onClearAllVideos,
+  onGoToStudio,
 }: {
   initialMetrics: MetricCardData[]
   initialTips: PerformanceTip[]
+  savedVideos?: SavedVideo[]
+  onDeleteVideo?: (id: string) => void
+  onClearAllVideos?: () => void
+  onGoToStudio?: () => void
 }) {
   const [metrics, setMetrics] = useState<MetricCardData[]>(initialMetrics)
   const [tips, setTips] = useState<PerformanceTip[]>(initialTips)
@@ -1490,12 +1976,272 @@ function MetricsSection({
           Ver fluxo no n8n <ExternalLink className="h-3 w-3" />
         </a>
       </div>
+
+      {/* Seção de Vídeos Salvos (Exibida diretamente abaixo de Métricas & Insights) */}
+      {savedVideos && onDeleteVideo && (
+        <div className="metrics-saved-videos-wrapper">
+          <div className="section-divider" />
+          <SavedVideosSection
+            videos={savedVideos}
+            onDeleteVideo={onDeleteVideo}
+            onClearAll={onClearAllVideos}
+            onGoToStudio={onGoToStudio}
+            isEmbedded={true}
+          />
+        </div>
+      )}
     </section>
   )
 }
 
 /* =========================================================================
-   6. ROOT CREATOR DASHBOARD COMPONENT
+   6. SAVED VIDEOS COMPONENT
+   ========================================================================= */
+
+function SavedVideosSection({
+  videos,
+  onDeleteVideo,
+  onClearAll,
+  onGoToStudio,
+  isEmbedded = false,
+}: {
+  videos: SavedVideo[]
+  onDeleteVideo: (id: string) => void
+  onClearAll?: () => void
+  onGoToStudio?: () => void
+  isEmbedded?: boolean
+}) {
+  const [watchingVideo, setWatchingVideo] = useState<SavedVideo | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const handleCopy = (video: SavedVideo) => {
+    const text = `${video.title}\n\n${video.description || ''}\n\n${video.hashtags ? video.hashtags.join(' ') : ''}`
+    navigator.clipboard.writeText(text)
+    setCopiedId(video.id)
+    setTimeout(() => setCopiedId(null), 1800)
+  }
+
+  const handleDelete = (id: string) => {
+    setDeletingId(id)
+    setTimeout(() => {
+      onDeleteVideo(id)
+      setDeletingId(null)
+    }, 200)
+  }
+
+  return (
+    <section className={`content saved-videos-content ${isEmbedded ? 'px-0 pt-0' : ''}`}>
+      <div className="section-heading">
+        <div>
+          <div className="eyebrow cyan">
+            <Film /> {isEmbedded ? 'HISTÓRICO DE PRODUÇÃO' : 'GERENCIADOR DE PRODUÇÃO'}
+          </div>
+          <h1>
+            Vídeos <span>Salvos</span>
+          </h1>
+          <p>
+            {isEmbedded
+              ? 'Vídeos gerados salvos automaticamente. Você pode assistir, baixar ou apagar qualquer item da sua biblioteca.'
+              : 'Gerencie todos os vídeos criados pelo StudioOps: reproduza, faça download do arquivo final ou exclua vídeos obsoletos.'}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {onGoToStudio && (
+            <button
+              type="button"
+              className="date-button flex items-center gap-1.5"
+              onClick={onGoToStudio}
+            >
+              <WandSparkles className="h-3.5 w-3.5" />
+              Criar Novo Vídeo
+            </button>
+          )}
+          {videos.length > 0 && onClearAll && (
+            <button
+              type="button"
+              className="saved-action-btn delete flex items-center gap-1.5 text-xs"
+              onClick={() => {
+                if (window.confirm('Tem certeza que deseja apagar todos os vídeos salvos?')) {
+                  onClearAll()
+                }
+              }}
+              title="Apagar todos os vídeos"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Limpar Todos ({videos.length})
+            </button>
+          )}
+        </div>
+      </div>
+
+      {videos.length === 0 ? (
+        <div className="empty-saved-box">
+          <div className="empty-saved-icon">
+            <Film className="h-7 w-7" />
+          </div>
+          <h3>Nenhum vídeo salvo no momento</h3>
+          <p>
+            Todos os vídeos que você renderizar no Estúdio de Criação ficarão salvos aqui automaticamente para você assistir, baixar ou excluir a qualquer momento.
+          </p>
+          {onGoToStudio && (
+            <button type="button" className="empty-create-btn" onClick={onGoToStudio}>
+              <WandSparkles className="h-4 w-4" /> Ir para o Estúdio de Criação
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="saved-videos-grid">
+          {videos.map((vid) => (
+            <div
+              key={vid.id}
+              className={`saved-video-card ${deletingId === vid.id ? 'opacity-40 transition-opacity' : ''}`}
+            >
+              {/* Thumbnail Container with Play Overlay */}
+              <div
+                className="saved-video-thumb-container"
+                onClick={() => setWatchingVideo(vid)}
+              >
+                <img
+                  src={vid.thumbnailUrl || 'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=800&q=85'}
+                  alt={vid.title}
+                  className="saved-video-thumb-img"
+                />
+                <div className="saved-video-play-overlay">
+                  <div className="play-btn-circle">
+                    <Play className="h-5 w-5 fill-current ml-0.5" />
+                  </div>
+                </div>
+
+                <div className="thumb-top-badges">
+                  <span className="thumb-badge duration">{vid.duration || '15s'}</span>
+                  {vid.retentionScore && (
+                    <span className="thumb-badge retention">
+                      {vid.retentionScore}% Retenção
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="saved-video-body">
+                <h3 className="saved-video-title" title={vid.title}>
+                  {vid.title}
+                </h3>
+                {vid.description && (
+                  <p className="saved-video-desc">{vid.description}</p>
+                )}
+
+                <div className="saved-video-meta">
+                  <span className="saved-video-meta-item">
+                    <Clock className="h-3 w-3 text-cyan-400" />
+                    {vid.createdAt}
+                  </span>
+                  <span className="saved-video-meta-item">
+                    <Sparkles className="h-3 w-3 text-purple-400" />
+                    {vid.styleName}
+                  </span>
+                </div>
+
+                {vid.hashtags && vid.hashtags.length > 0 && (
+                  <div className="saved-video-tags">
+                    {vid.hashtags.slice(0, 4).map((tag, i) => (
+                      <span key={i} className="saved-video-tag">
+                        {tag.startsWith('#') ? tag : `#${tag}`}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="saved-video-actions">
+                  <button
+                    type="button"
+                    className="saved-action-btn primary"
+                    onClick={() => setWatchingVideo(vid)}
+                    title="Assistir vídeo"
+                  >
+                    <Play className="h-3.5 w-3.5 fill-current" />
+                    Assistir
+                  </button>
+
+                  <a
+                    href={vid.videoUrl}
+                    download={`studioops-${vid.id}.mp4`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="saved-action-btn secondary"
+                    title="Baixar arquivo de vídeo MP4"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </a>
+
+                  <button
+                    type="button"
+                    className="saved-action-btn secondary"
+                    onClick={() => handleCopy(vid)}
+                    title="Copiar título e hashtags para postar"
+                  >
+                    {copiedId === vid.id ? (
+                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                    ) : (
+                      <Clipboard className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="saved-action-btn delete"
+                    onClick={() => handleDelete(vid.id)}
+                    title="Apagar vídeo da biblioteca"
+                    aria-label="Apagar vídeo"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Video Modal Player */}
+      {watchingVideo && (
+        <div className="video-modal-overlay" onClick={() => setWatchingVideo(null)}>
+          <div
+            className="video-modal-container"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="video-modal-close"
+              onClick={() => setWatchingVideo(null)}
+              aria-label="Fechar vídeo"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <VideoPlayer
+              videoUrl={watchingVideo.videoUrl}
+              title={watchingVideo.title}
+              narration={watchingVideo.description}
+              hashtags={watchingVideo.hashtags}
+              onDownload={() => {
+                const a = document.createElement('a')
+                a.href = watchingVideo.videoUrl
+                a.download = `studioops-${watchingVideo.id}.mp4`
+                a.click()
+              }}
+            />
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+/* =========================================================================
+   7. ROOT CREATOR DASHBOARD COMPONENT
    ========================================================================= */
 
 export default function CreatorDashboard() {
@@ -1505,11 +2251,63 @@ export default function CreatorDashboard() {
   const [selectedStyleName, setSelectedStyleName] = useState<string | undefined>()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [hasColabConfigured, setHasColabConfigured] = useState(false)
+  const [savedVideos, setSavedVideos] = useState<SavedVideo[]>([])
+
+  useEffect(() => {
+    const raw = getStoredSavedVideos()
+    // Auto-deduplicate any duplicates that might have been saved in localStorage
+    const seen = new Set<string>()
+    const unique: SavedVideo[] = []
+    for (const v of raw) {
+      const key = `${v.videoUrl || ''}___${v.title?.trim() || ''}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        unique.push(v)
+      }
+    }
+    setSavedVideos(unique)
+    saveStoredSavedVideos(unique)
+  }, [])
 
   useEffect(() => {
     const config = getStoredConfig()
     setHasColabConfigured(Boolean(config.colabUrl))
   }, [isSettingsOpen])
+
+  const handleSaveVideo = (video: SavedVideo) => {
+    setSavedVideos((prev) => {
+      // Find if this video already exists by ID, or by identical videoUrl + title
+      const existsIndex = prev.findIndex(
+        (v) =>
+          v.id === video.id ||
+          (v.title?.trim() === video.title?.trim() && v.videoUrl === video.videoUrl)
+      )
+
+      let updated: SavedVideo[]
+      if (existsIndex !== -1) {
+        // Update the existing entry instead of creating duplicates
+        updated = [...prev]
+        updated[existsIndex] = { ...updated[existsIndex], ...video }
+      } else {
+        updated = [video, ...prev]
+      }
+      saveStoredSavedVideos(updated)
+      return updated
+    })
+  }
+
+  const handleDeleteVideo = (id: string) => {
+    setSavedVideos((prev) => {
+      const updated = prev.filter((v) => v.id !== id)
+      saveStoredSavedVideos(updated)
+      return updated
+    })
+  }
+
+  const handleClearAllVideos = () => {
+    setSavedVideos([])
+    saveStoredSavedVideos([])
+  }
 
   const handleSelectTrend = (trend: TrendItem) => {
     // Formatar uma ideia limpa e focada no tema real, sem prefixos robóticos
@@ -1535,6 +2333,7 @@ export default function CreatorDashboard() {
         agents={MOCK_AGENTS}
         onOpenSettings={() => setIsSettingsOpen(true)}
         hasColabConfigured={hasColabConfigured}
+        savedVideosCount={savedVideos.length}
       />
       <main className="main-area">
         <Header
@@ -1551,12 +2350,25 @@ export default function CreatorDashboard() {
             initialStyleName={selectedStyleName}
             styles={VISUAL_STYLES}
             onOpenSettings={() => setIsSettingsOpen(true)}
+            onSaveVideo={handleSaveVideo}
           />
         )}
         {tab === 'metrics' && (
           <MetricsSection
             initialMetrics={MOCK_METRICS}
             initialTips={MOCK_TIPS}
+            savedVideos={savedVideos}
+            onDeleteVideo={handleDeleteVideo}
+            onClearAllVideos={handleClearAllVideos}
+            onGoToStudio={() => setTab('studio')}
+          />
+        )}
+        {tab === 'saved_videos' && (
+          <SavedVideosSection
+            videos={savedVideos}
+            onDeleteVideo={handleDeleteVideo}
+            onClearAll={handleClearAllVideos}
+            onGoToStudio={() => setTab('studio')}
           />
         )}
       </main>
