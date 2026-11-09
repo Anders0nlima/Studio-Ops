@@ -31,6 +31,7 @@ output/
 colab/output/
 
 # OS / IDE
+*.tsbuildinfo
 .DS_Store
 Thumbs.db
 .vscode/

@@ -338,15 +338,15 @@ export function VideoPlayer({
 
         {/* Error Overlay if connection dropped */}
         {mediaError && (
-          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/90 p-4 text-center text-white">
-            <AlertCircle className="h-8 w-8 text-amber-400 mb-2" />
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-neutral-950/95 backdrop-blur-md p-4 text-center text-white">
+            <AlertCircle className="h-8 w-8 text-amber-400 mb-2 shrink-0" />
             <strong className="text-xs font-semibold text-amber-300">
               Conexão com o Colab Necessária
             </strong>
-            <p className="text-[10px] text-white/70 mt-1 mb-3 leading-relaxed">
+            <p className="text-[10px] text-white/80 mt-1.5 mb-3 leading-relaxed max-w-[190px]">
               {mediaError}
             </p>
-            <div className="flex flex-col gap-1.5 w-full max-w-[180px]">
+            <div className="flex flex-col gap-2 w-full max-w-[180px]">
               <button
                 onClick={() => {
                   setMediaError(null)
@@ -355,14 +355,14 @@ export function VideoPlayer({
                     videoRef.current.play().catch(() => {})
                   }
                 }}
-                className="flex items-center justify-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
+                className="flex items-center justify-center gap-1.5 rounded-lg bg-white/15 px-3 py-2 text-xs font-medium text-white hover:bg-white/25 transition-colors shadow-sm"
               >
-                <RotateCcw className="h-3 w-3" /> Tentar recarregar
+                <RotateCcw className="h-3.5 w-3.5" /> Tentar recarregar
               </button>
               {onOpenSettings && (
                 <button
                   onClick={onOpenSettings}
-                  className="rounded-lg border border-[#00f2fe]/40 px-3 py-1.5 text-xs font-medium text-[#00f2fe] hover:bg-[#00f2fe]/10"
+                  className="rounded-lg border border-[#00f2fe]/60 bg-[#00f2fe]/10 px-3 py-2 text-xs font-medium text-[#00f2fe] hover:bg-[#00f2fe]/20 transition-colors shadow-sm"
                 >
                   Verificar URL do Ngrok
                 </button>

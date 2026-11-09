@@ -86,6 +86,23 @@ export interface PerformanceTip {
   category: 'hook' | 'timing' | 'retention' | 'cta' | 'pacing'
 }
 
+export interface TikTokVideoInfo {
+  title: string
+  author: string
+  authorUrl?: string
+  videoUrl?: string
+  thumbnailUrl?: string
+}
+
+export interface MetricsAnalysisResult {
+  summary: string
+  overallScore: number
+  tips: PerformanceTip[]
+  metrics: MetricCardData[]
+  source?: string
+  videoInfo?: TikTokVideoInfo
+}
+
 export interface AgentInfo {
   id: string
   name: string

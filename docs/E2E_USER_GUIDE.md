@@ -102,11 +102,16 @@ Acesse `http://localhost:3000` no seu navegador.
 
 ## 📊 Análise de Métricas & Diagnóstico de Retenção
 
+A aba **Métricas & Insights de IA** permite analisar o desempenho dos seus vídeos de duas formas:
+
+### Opção 1: Puxar Direto do App TikTok (Link ou @Perfil)
 1. Acesse a aba **Métricas & Insights**.
-2. Faça upload do seu arquivo CSV exportado do TikTok Analytics (ou clique em **"Carregar CSV de Amostra"**).
-3. O **Performance Agent** calculará:
-   - Taxa de Retenção no Gancho (0-3s)
-   - Tempo Médio Assistido
-   - Taxa de Compartilhamento
-   - CTR da Imagem Inicial
-4. Três oportunidades críticas de melhoria serão exibidas para aplicar no seu próximo roteiro.
+2. Selecione a opção **"Puxar do App TikTok (Link ou @Perfil)"**.
+3. Cole a URL de qualquer vídeo do TikTok (ex: `https://www.tiktok.com/@tiktok/video/...`) ou o `@perfil` do criador (ou use os chips de exemplos rápidos).
+4. Clique em **"Puxar Métricas do App"**.
+5. O **Performance Agent** sincroniza os metadados do vídeo (título, autor, capa) e calcula automaticamente a curva de retenção, tempo médio e dicas de gancho.
+
+### Opção 2: Upload de Relatório CSV (TikTok Analytics)
+1. Selecione a opção **"Upload de CSV (TikTok Analytics)"**.
+2. Faça upload do arquivo `.csv` exportado do TikTok Creator Center (ou clique em **"Carregar CSV de Amostra"**).
+3. O **Performance Agent** extrai as colunas de retenção e gera 3 diagnósticos acionáveis para o seu próximo roteiro.

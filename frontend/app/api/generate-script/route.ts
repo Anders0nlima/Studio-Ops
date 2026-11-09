@@ -79,7 +79,35 @@ function generateDomainContent(topic: string, style: string, customHook?: string
     }
   }
 
-  // 2. CARS / VELOCIDADE
+  // 2. CANADA / VIAGEM / TRAVEL / NATUREZA
+  if (
+    t.includes('canada') ||
+    t.includes('canadá') ||
+    t.includes('viagem') ||
+    t.includes('travel') ||
+    t.includes('morar fora') ||
+    t.includes('imigrar') ||
+    t.includes('intercambio') ||
+    t.includes('inverno') ||
+    t.includes('montanha') ||
+    t.includes('banff')
+  ) {
+    const hook = customHook || 'Três segredos sobre a vida no Canadá que ninguém te conta.'
+    return {
+      hook,
+      body: 'Com invernos de trinta e cinco graus negativos e lagos cristalinos surreais, o choque cultural canadense vai muito além do frio.',
+      cta: 'Você teria coragem de encarar o inverno no Canadá? Deixe sua resposta nos comentários!',
+      img1: `Breathtaking high quality vertical shot of picturesque snow-covered streets in Quebec Canada at twilight, glowing lanterns, cozy snowfall, ${s} style, cinematic 8k, vertical 9:16 aspect ratio`,
+      img2: `Stunning vertical landscape of Lake Louise Banff Canada, emerald glacial turquoise water surrounded by towering snow-capped Rocky Mountains, ${s} style, 8k photography, vertical 9:16 aspect ratio`,
+      img3: `Cozy Canadian wooden mountain cabin under glowing green Northern Lights aurora borealis in the starry night sky, ${s} style, vertical 9:16`,
+      title: 'A vida real no Canadá que ninguém te mostra',
+      description: 'Você teria coragem de encarar -35°C? Conheça as paisagens mais surreais e o choque cultural de morar no Canadá. Comente se você moraria lá! #canada #viagem #intercambio',
+      hashtags: ['#canada', '#viagem', '#intercambio', '#morarfora', '#inverno', '#curiosidades', '#viral'],
+      audioVibe: 'Crisp Ambient Nordic Acoustic Echo 110BPM',
+    }
+  }
+
+  // 3. CARS / VELOCIDADE
   if (t.includes('carro') || t.includes('car') || t.includes('motor') || t.includes('velocidade') || t.includes('porsche') || t.includes('ferrari')) {
     const hook = customHook || 'O motor mais potente do mundo que quase foi banido das ruas.'
     return {
@@ -252,7 +280,7 @@ Responda ESTRITAMENTE em formato JSON com o seguinte schema:
         stream: false,
         options: { temperature: 0.7 },
       }),
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(45000),
     })
 
     if (ollamaRes.ok) {

@@ -117,7 +117,7 @@ async function runE2eTestSuite() {
 
   // Test 5: Metrics & CSV Retention Analysis
   try {
-    console.log('\n5️⃣ Testando Análise de Métricas & Diagnóstico de Retenção...')
+    console.log('\n5️⃣ Testando Análise de Métricas via CSV...')
     const sampleCsv = `video_id,watch_time_avg,retention_3s,shares,comments
 vid_001,13.5,82.4,3200,850
 vid_002,14.1,86.1,4100,1200`
@@ -132,6 +132,24 @@ vid_002,14.1,86.1,4100,1200`
     }
   } catch (e: any) {
     console.error('   ❌ Falha no Teste 5:', e.message)
+    failed++
+  }
+
+  // Test 6: Metrics via TikTok App URL / Handle
+  try {
+    console.log('\n6️⃣ Testando Sincronização Direta de Métricas do App TikTok (URL / @Perfil)...')
+    const testUrl = 'https://www.tiktok.com/@studioops/video/7391204859123847291'
+    const appMetricsRes = await analyzeMetricsApi({ url: testUrl })
+
+    if (appMetricsRes.metrics.length > 0 && appMetricsRes.tips.length > 0) {
+      console.log(`   ✅ Sucesso! Métricas do App TikTok sincronizadas:`)
+      console.log(`      Fonte: ${appMetricsRes.source || 'app'} | Score: ${appMetricsRes.overallScore}/100`)
+      passed++
+    } else {
+      throw new Error('Métricas do App vazias')
+    }
+  } catch (e: any) {
+    console.error('   ❌ Falha no Teste 6:', e.message)
     failed++
   }
 

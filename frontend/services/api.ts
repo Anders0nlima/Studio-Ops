@@ -1,4 +1,13 @@
-import { ConnectionConfig, TrendItem, GeneratedScript, GrowthMetadata, MetricCardData, PerformanceTip } from '@/types/studio'
+import {
+  ConnectionConfig,
+  TrendItem,
+  GeneratedScript,
+  GrowthMetadata,
+  MetricCardData,
+  PerformanceTip,
+  TikTokVideoInfo,
+  MetricsAnalysisResult,
+} from '@/types/studio'
 import { MOCK_TRENDS, MOCK_METRICS, MOCK_TIPS } from '@/mocks/studio-data'
 
 export const DEFAULT_CONFIG: ConnectionConfig = {
@@ -48,7 +57,7 @@ export async function fetchTrendsApi(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ category, niche, n8nUrl: targetN8n }),
-      signal: AbortSignal.timeout(9000),
+      signal: AbortSignal.timeout(50000),
     })
 
     if (res.ok) {
@@ -63,6 +72,54 @@ export async function fetchTrendsApi(
     }
   } catch (err) {
     console.warn('[API Trends] Error calling /api/trends, using local fallback:', err)
+  }
+
+  // Se o usuário digitou um nicho específico, nunca retornar tendências estáticas genéricas
+  if (niche && niche.trim()) {
+    const cleanNiche = niche.trim()
+    const isCanada = cleanNiche.toLowerCase().includes('canada') || cleanNiche.toLowerCase().includes('canadá')
+    const isSoccer = cleanNiche.toLowerCase().includes('socc') || cleanNiche.toLowerCase().includes('futebol')
+
+    return {
+      trends: [
+        {
+          id: `fallback-${cleanNiche}-1`,
+          tag: isCanada ? '#ViverNoCanada' : isSoccer ? '#GolsHistoricos' : `#${cleanNiche.replace(/\s+/g, '')}Viral`,
+          topic: isCanada ? 'O Choque de Realidade ao Morar no Canadá' : isSoccer ? 'O Chute que Desafiou as Leis da Física' : `Os Segredos de ${cleanNiche}`,
+          growth: '+280%',
+          color: 'cyan',
+          category: isCanada ? 'Viagem & Imigração' : isSoccer ? 'Futebol & Esportes' : cleanNiche,
+          insight: `Fatos virais sobre ${cleanNiche} gerando alto tempo de retenção no TikTok.`,
+          hookIdea: isCanada ? 'Três coisas que ninguém te conta antes de se mudar para o Canadá.' : isSoccer ? 'O chute de falta de 1997 que cientistas tentam explicar até hoje.' : `O maior erro que quase todo mundo comete em ${cleanNiche}.`,
+          visualStyleRecommended: 'Cinematic',
+          retentionScore: 94,
+          image: isCanada
+            ? 'https://images.unsplash.com/photo-1517935703635-27190760b7fe?auto=format&fit=crop&w=800&q=85'
+            : isSoccer
+            ? 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=800&q=85'
+            : 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=85',
+        },
+        {
+          id: `fallback-${cleanNiche}-2`,
+          tag: isCanada ? '#InvernoCanadense' : isSoccer ? '#RegrasDoFutebol' : `#Dicas${cleanNiche.replace(/\s+/g, '')}`,
+          topic: isCanada ? 'Como é Sobreviver a -35°C no Canadá' : isSoccer ? 'A Regra Mais Bizarra do Futebol' : `3 Curiosidades sobre ${cleanNiche}`,
+          growth: '+210%',
+          color: 'pink',
+          category: isCanada ? 'Viagem & Curiosidades' : isSoccer ? 'Futebol & Esportes' : cleanNiche,
+          insight: `Ganchos de curiosidade e debate sobre ${cleanNiche} com 3x mais comentários.`,
+          hookIdea: isCanada ? 'A rotina louca de quem vive em uma cidade onde os cílios congelam em 2 minutos.' : isSoccer ? 'Se a bola furar antes de entrar no gol, o que o juiz deve marcar?' : `Três coisas inacreditáveis sobre ${cleanNiche} que você não sabia.`,
+          visualStyleRecommended: 'Cinematic',
+          retentionScore: 91,
+          image: isCanada
+            ? 'https://images.unsplash.com/photo-1503614472-8c93d56e92ce?auto=format&fit=crop&w=800&q=85'
+            : isSoccer
+            ? 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=800&q=85'
+            : 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=85',
+        },
+      ],
+      source: 'niche_fallback',
+      providerName: `Coolhunter AI (${cleanNiche})`,
+    }
   }
 
   return { trends: MOCK_TRENDS, source: 'mock_fallback', providerName: 'Coolhunter Local' }
@@ -86,7 +143,7 @@ export async function generateScriptApi(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ topic, style, duration, voice, n8nUrl: targetN8n }),
-      signal: AbortSignal.timeout(18000),
+      signal: AbortSignal.timeout(50000),
     })
 
     if (res.ok) {
@@ -300,19 +357,62 @@ export async function pollJobStatusApi(
 }
 
 /**
- * 5. Analyze Metrics via n8n /webhook/metrics-insights
+ * 5. Analyze Metrics via /api/metrics (supports TikTok App URL, @username or CSV, delegating to n8n, Ollama, or Algorithmic Engine)
  */
 export async function analyzeMetricsApi(
-  rawCsv?: string,
+  input?: string | { csv?: string; url?: string; username?: string; n8nUrl?: string },
   n8nUrl?: string
-): Promise<{ summary: string; overallScore: number; tips: PerformanceTip[]; metrics: MetricCardData[] }> {
-  const base = (n8nUrl || getStoredConfig().n8nUrl).replace(/\/$/, '')
+): Promise<MetricsAnalysisResult> {
+  const config = getStoredConfig()
+  let body: { csv?: string; url?: string; username?: string; n8nUrl?: string } = {}
+
+  if (typeof input === 'string') {
+    const trimmed = input.trim()
+    if (trimmed.startsWith('http') || trimmed.startsWith('@') || trimmed.includes('tiktok.com')) {
+      body.url = trimmed
+    } else {
+      body.csv = trimmed
+    }
+  } else if (input && typeof input === 'object') {
+    body = { ...input }
+  }
+
+  body.n8nUrl = body.n8nUrl || n8nUrl || config.n8nUrl
+
+  // 1. Try Next.js internal /api/metrics endpoint
+  try {
+    const res = await fetch('/api/metrics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(12000),
+    })
+
+    if (res.ok) {
+      const data = await res.json()
+      if (data.metrics && Array.isArray(data.metrics) && data.metrics.length > 0) {
+        return {
+          summary: data.summary || 'Diagnóstico de Retenção TikTok',
+          overallScore: data.overallScore || 85,
+          tips: data.tips || MOCK_TIPS,
+          metrics: data.metrics,
+          source: data.source,
+          videoInfo: data.videoInfo,
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[API Metrics] /api/metrics call failed, trying direct n8n webhook:', err)
+  }
+
+  // 2. Fallback to direct n8n webhook if available
+  const base = (body.n8nUrl || config.n8nUrl).replace(/\/$/, '')
   try {
     const res = await fetch(`${base}/webhook/metrics-insights`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ csv: rawCsv || '' }),
-      signal: AbortSignal.timeout(10000),
+      body: JSON.stringify({ csv: body.csv || '', url: body.url }),
+      signal: AbortSignal.timeout(6000),
     })
 
     if (res.ok) {
@@ -323,6 +423,7 @@ export async function analyzeMetricsApi(
           overallScore: data.analysis.overallScore || 85,
           tips: data.analysis.actionableTips || MOCK_TIPS,
           metrics: MOCK_METRICS,
+          source: 'n8n_direct',
         }
       }
     }
@@ -330,10 +431,12 @@ export async function analyzeMetricsApi(
     console.warn('[API Metrics] n8n metrics analyzer offline, using calibrated fallback:', err)
   }
 
+  // 3. Fallback default
   return {
     summary: 'Diagnóstico de retenção calculado pelo Performance Agent',
     overallScore: 86,
     tips: MOCK_TIPS,
     metrics: MOCK_METRICS,
+    source: 'calibrated_fallback',
   }
 }

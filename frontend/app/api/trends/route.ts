@@ -9,6 +9,12 @@ const NICHE_IMAGES: Record<string, string[]> = {
     'https://images.unsplash.com/photo-1517466787929-bc90951d0974?auto=format&fit=crop&w=800&q=85',
     'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=85',
   ],
+  travel: [
+    'https://images.unsplash.com/photo-1517935703635-27190760b7fe?auto=format&fit=crop&w=800&q=85',
+    'https://images.unsplash.com/photo-1503614472-8c93d56e92ce?auto=format&fit=crop&w=800&q=85',
+    'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=85',
+    'https://images.unsplash.com/photo-1519052537078-e6302a4968d4?auto=format&fit=crop&w=800&q=85',
+  ],
   tech: [
     'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=800&q=85',
     'https://images.unsplash.com/photo-1535378917042-10a22c95931a?auto=format&fit=crop&w=800&q=85',
@@ -41,6 +47,8 @@ function getRandomImage(category: string = 'default'): string {
   let pool = NICHE_IMAGES.default
   if (cat.includes('socc') || cat.includes('futebol') || cat.includes('foot') || cat.includes('esport') || cat.includes('sport')) {
     pool = NICHE_IMAGES.sports
+  } else if (cat.includes('canada') || cat.includes('canadá') || cat.includes('viagem') || cat.includes('travel') || cat.includes('pais') || cat.includes('nature')) {
+    pool = NICHE_IMAGES.travel
   } else if (cat.includes('tech') || cat.includes('ia') || cat.includes('tecnologia')) {
     pool = NICHE_IMAGES.tech
   } else if (cat.includes('life') || cat.includes('estilo') || cat.includes('saúde')) {
@@ -129,7 +137,7 @@ export async function POST(request: NextRequest) {
         stream: false,
         options: { temperature: 0.7 },
       }),
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(45000),
     })
 
     if (ollamaRes.ok) {
@@ -246,7 +254,79 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 2. QUALQUER OUTRO NICHO CUSTOMIZADO (Com frases e ganchos em português natural)
+    // 2. CANADA / VIAGEM / TRAVEL / NATUREZA
+    if (
+      nLower.includes('canada') ||
+      nLower.includes('canadá') ||
+      nLower.includes('viagem') ||
+      nLower.includes('travel') ||
+      nLower.includes('morar fora') ||
+      nLower.includes('imigrar')
+    ) {
+      const canadaTrends: TrendItem[] = [
+        {
+          id: `canada-1-${Date.now()}`,
+          tag: '#ViverNoCanada',
+          topic: 'O Choque de Realidade ao Morar no Canadá',
+          growth: '+285%',
+          color: 'cyan',
+          category: 'Viagem & Imigração',
+          insight: 'Relatos sinceros de custo de vida e clima têm 3x mais comentários e salvamentos.',
+          hookIdea: 'Três coisas que ninguém te conta antes de se mudar para o Canadá.',
+          visualStyleRecommended: 'Cinematic',
+          retentionScore: 95,
+          image: NICHE_IMAGES.travel[0],
+        },
+        {
+          id: `canada-2-${Date.now()}`,
+          tag: '#InvernoCanadense',
+          topic: 'Como é Sobreviver a -35°C no Canadá',
+          growth: '+230%',
+          color: 'pink',
+          category: 'Viagem & Curiosidades',
+          insight: 'Imagens de neve extrema e o contraste térmico prendem a audiência nos primeiros 3s.',
+          hookIdea: 'A rotina louca de quem vive em uma cidade onde os cílios congelam em 2 minutos.',
+          visualStyleRecommended: 'Cinematic',
+          retentionScore: 92,
+          image: NICHE_IMAGES.travel[3],
+        },
+        {
+          id: `canada-3-${Date.now()}`,
+          tag: '#PaisagensDoCanada',
+          topic: 'Os Lagos Mais Cristalinos do Mundo em Banff',
+          growth: '+195%',
+          color: 'purple',
+          category: 'Natureza & Viagem',
+          insight: 'Vídeos de paisagens surreais com áudio ambiente geram compartilhamentos massivos.',
+          hookIdea: 'O lugar no Canadá que parece uma pintura feita por computador.',
+          visualStyleRecommended: 'Pixar 3D',
+          retentionScore: 90,
+          image: NICHE_IMAGES.travel[1],
+        },
+        {
+          id: `canada-4-${Date.now()}`,
+          tag: '#CustoDeVidaCanada',
+          topic: 'Salário Mínimo vs Aluguel Real no Canadá',
+          growth: '+175%',
+          color: 'amber',
+          category: 'Finanças & Vida Fora',
+          insight: 'Contas abertas e comparações de moeda prendem a atenção até o segundo final.',
+          hookIdea: 'Quanto realmente sobra no final do mês trabalhando de salário mínimo no Canadá?',
+          visualStyleRecommended: 'Anime / Manga',
+          retentionScore: 89,
+          image: NICHE_IMAGES.travel[2],
+        },
+      ]
+
+      return NextResponse.json({
+        success: true,
+        source: 'niche_engine',
+        providerName: 'Coolhunter Canadá & Viagens AI',
+        trends: canadaTrends,
+      })
+    }
+
+    // 3. QUALQUER OUTRO NICHO CUSTOMIZADO (Com frases e ganchos em português natural)
     const customTrends: TrendItem[] = [
       {
         id: `custom-niche-1-${Date.now()}`,

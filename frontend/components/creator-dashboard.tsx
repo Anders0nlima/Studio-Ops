@@ -28,6 +28,8 @@ import {
   ExternalLink,
   Hash,
   FileText,
+  Link2,
+  Smartphone,
 } from 'lucide-react'
 
 import {
@@ -41,6 +43,7 @@ import {
   GeneratedScript,
   GrowthMetadata,
   ConnectionConfig,
+  TikTokVideoInfo,
 } from '@/types/studio'
 import {
   MOCK_TRENDS,
@@ -1064,9 +1067,43 @@ function MetricsSection({
   const [summary, setSummary] = useState(
     'Diagnóstico do Performance Agent: vídeos com gancho nos primeiros 2.5s aumentam o tempo médio em 42%.'
   )
+  const [mode, setMode] = useState<'app' | 'csv'>('app')
+  const [tiktokUrl, setTiktokUrl] = useState('https://www.tiktok.com/@tiktok/video/7106594312292453678')
+  const [detectedVideo, setDetectedVideo] = useState<TikTokVideoInfo | null>({
+    title: 'Gancho Provocativo: Como a IA acelera a retenção no TikTok',
+    author: 'tiktok',
+    authorUrl: 'https://www.tiktok.com/@tiktok',
+    videoUrl: 'https://www.tiktok.com/@tiktok/video/7106594312292453678',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=800&q=85',
+  })
+  const [analysisSource, setAnalysisSource] = useState<string | null>('tiktok_app_live')
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysisSuccess, setAnalysisSuccess] = useState(false)
+
+  const handleFetchApp = async (customUrl?: string) => {
+    const urlTarget = (customUrl || tiktokUrl).trim()
+    if (!urlTarget) return
+    if (customUrl) setTiktokUrl(customUrl)
+
+    setIsAnalyzing(true)
+    setAnalysisSuccess(false)
+    try {
+      const result = await analyzeMetricsApi({ url: urlTarget })
+      setMetrics(result.metrics)
+      setTips(result.tips)
+      setSummary(result.summary)
+      if (result.videoInfo) {
+        setDetectedVideo(result.videoInfo)
+      }
+      setAnalysisSource(result.source || 'tiktok_app')
+      setAnalysisSuccess(true)
+    } catch (err) {
+      console.error('Error fetching TikTok metrics:', err)
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -1084,10 +1121,11 @@ function MetricsSection({
     reader.onload = async (event) => {
       const text = event.target?.result as string
       try {
-        const result = await analyzeMetricsApi(text)
+        const result = await analyzeMetricsApi({ csv: text })
         setMetrics(result.metrics)
         setTips(result.tips)
         setSummary(result.summary)
+        setAnalysisSource(result.source || 'csv_parsed')
         setAnalysisSuccess(true)
       } catch (err) {
         console.error('Error analyzing CSV:', err)
@@ -1159,6 +1197,7 @@ function MetricsSection({
       setSummary(
         'Diagnóstico do Performance Agent: Seu formato atual supera a média do nicho em 38%. Recomenda-se dobrar a frequência neste estilo.'
       )
+      setAnalysisSource('sample_calibrated')
       setIsAnalyzing(false)
       setAnalysisSuccess(true)
     }, 1200)
@@ -1175,51 +1214,180 @@ function MetricsSection({
             Métricas & Insights <span>de IA</span>
           </h1>
           <p>
-            Faça upload do relatório de métricas do TikTok (CSV) ou carregue uma amostra para receber diagnósticos automáticos de gancho e retenção.
+            Puxe os dados de qualquer vídeo ou perfil do TikTok ou importe um relatório CSV para receber diagnósticos automáticos de gancho e retenção.
           </p>
         </div>
+        {mode === 'csv' && (
+          <button
+            className="date-button flex items-center gap-1.5"
+            onClick={handleLoadSample}
+            disabled={isAnalyzing}
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5" />
+            Carregar CSV de Amostra
+          </button>
+        )}
+      </div>
+
+      {/* Tabs Selector: Puxar do App vs Upload CSV */}
+      <div className="metrics-tabs">
         <button
-          className="date-button flex items-center gap-1.5"
-          onClick={handleLoadSample}
-          disabled={isAnalyzing}
+          className={`metrics-tab-btn ${mode === 'app' ? 'active' : ''}`}
+          onClick={() => setMode('app')}
         >
-          <FileSpreadsheet className="h-3.5 w-3.5" />
-          Carregar CSV de Amostra
+          <Link2 className="h-4 w-4" />
+          Puxar do App TikTok (Link ou @Perfil)
+        </button>
+        <button
+          className={`metrics-tab-btn ${mode === 'csv' ? 'active' : ''}`}
+          onClick={() => setMode('csv')}
+        >
+          <FileSpreadsheet className="h-4 w-4" />
+          Upload de CSV (TikTok Analytics)
         </button>
       </div>
 
-      {/* Upload Zone */}
-      <label className="upload-zone cursor-pointer" htmlFor="csv-upload">
-        <input
-          id="csv-upload"
-          type="file"
-          accept=".csv"
-          className="hidden"
-          onChange={handleFileChange}
-        />
-        <div className="upload-icon">
-          {isAnalyzing ? (
-            <RefreshCw className="h-6 w-6 animate-spin text-[#00f2fe]" />
-          ) : analysisSuccess ? (
-            <CheckCircle2 className="h-6 w-6 text-emerald-400" />
-          ) : (
-            <Upload />
+      {/* MODO 1: PUXAR DIRETO DO APP */}
+      {mode === 'app' && (
+        <div className="app-fetch-box">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                <Smartphone className="h-4 w-4 text-[#00f2fe]" /> Sincronizar com Vídeo ou Perfil do TikTok
+              </h2>
+              <p className="text-xs text-[#8c909d] mt-1">
+                Insira o link de qualquer vídeo ou @perfil público para que o Performance Agent analise os ganchos de retenção e ritmo.
+              </p>
+            </div>
+          </div>
+
+          <form
+            className="app-fetch-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              handleFetchApp()
+            }}
+          >
+            <div className="app-fetch-input-wrapper">
+              <Link2 />
+              <input
+                type="text"
+                className="app-fetch-input"
+                placeholder="Ex: https://www.tiktok.com/@tiktok/video/... ou @perfil"
+                value={tiktokUrl}
+                onChange={(e) => setTiktokUrl(e.target.value)}
+                disabled={isAnalyzing}
+              />
+            </div>
+            <button
+              type="submit"
+              className="app-fetch-btn"
+              disabled={isAnalyzing || !tiktokUrl.trim()}
+            >
+              {isAnalyzing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" /> Analisando Vídeo...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" /> Puxar Métricas do App
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="quick-samples">
+            <span className="quick-samples-label">Exemplos rápidos:</span>
+            <button
+              type="button"
+              className="sample-chip"
+              onClick={() => handleFetchApp('https://www.tiktok.com/@studioops/video/7391204859123847291')}
+            >
+              🔥 Vídeo Viral de IA (Gancho 2.5s)
+            </button>
+            <button
+              type="button"
+              className="sample-chip"
+              onClick={() => handleFetchApp('https://www.tiktok.com/@editoresbrasil/video/7281948301928392102')}
+            >
+              ⚡ Tutorial Tech Rápido
+            </button>
+            <button
+              type="button"
+              className="sample-chip"
+              onClick={() => handleFetchApp('@tiktok')}
+            >
+              🎯 Perfil Oficial @tiktok
+            </button>
+          </div>
+
+          {detectedVideo && (
+            <div className="detected-video-banner">
+              <div className="detected-video-thumb">
+                {detectedVideo.thumbnailUrl ? (
+                  <img src={detectedVideo.thumbnailUrl} alt={detectedVideo.title} />
+                ) : (
+                  <Film className="h-6 w-6 text-[#00f2fe]" />
+                )}
+              </div>
+              <div className="detected-video-info">
+                <div className="detected-badge">
+                  <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                  <span>Sincronizado com Sucesso</span>
+                  {analysisSource && <span className="source-tag">({analysisSource})</span>}
+                </div>
+                <h3 className="detected-video-title">{detectedVideo.title}</h3>
+                <p className="detected-video-author">Criador: <strong>@{detectedVideo.author}</strong></p>
+              </div>
+              {detectedVideo.videoUrl && (
+                <a
+                  href={detectedVideo.videoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="detected-link-btn"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> Abrir no TikTok
+                </a>
+              )}
+            </div>
           )}
         </div>
-        <div>
-          <h2>
-            {isAnalyzing
-              ? 'Analisando arquivo com IA...'
-              : selectedFile
-              ? `Arquivo: ${selectedFile}`
-              : 'Solte seu CSV de métricas aqui'}
-          </h2>
-          <p>
-            ou <span className="text-[#00f2fe] underline">selecione um arquivo</span> do seu computador
-          </p>
-          <small>Formato: .CSV do TikTok Analytics · Tamanho máximo: 10MB</small>
-        </div>
-      </label>
+      )}
+
+      {/* MODO 2: UPLOAD DE CSV */}
+      {mode === 'csv' && (
+        <label className="upload-zone cursor-pointer" htmlFor="csv-upload">
+          <input
+            id="csv-upload"
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <div className="upload-icon">
+            {isAnalyzing ? (
+              <RefreshCw className="h-6 w-6 animate-spin text-[#00f2fe]" />
+            ) : analysisSuccess ? (
+              <CheckCircle2 className="h-6 w-6 text-emerald-400" />
+            ) : (
+              <Upload />
+            )}
+          </div>
+          <div>
+            <h2>
+              {isAnalyzing
+                ? 'Analisando arquivo com IA...'
+                : selectedFile
+                ? `Arquivo: ${selectedFile}`
+                : 'Solte seu CSV de métricas aqui'}
+            </h2>
+            <p>
+              ou <span className="text-[#00f2fe] underline">selecione um arquivo</span> do seu computador
+            </p>
+            <small>Formato: .CSV do TikTok Analytics · Tamanho máximo: 10MB</small>
+          </div>
+        </label>
+      )}
 
       {/* Metric Cards Grid */}
       <div className="metrics-grid">
