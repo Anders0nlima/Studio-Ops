@@ -3,6 +3,12 @@ import { TrendItem } from '@/types/studio'
 import { MOCK_TRENDS } from '@/mocks/studio-data'
 
 const NICHE_IMAGES: Record<string, string[]> = {
+  sports: [
+    'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=800&q=85',
+    'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=800&q=85',
+    'https://images.unsplash.com/photo-1517466787929-bc90951d0974?auto=format&fit=crop&w=800&q=85',
+    'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=85',
+  ],
   tech: [
     'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=800&q=85',
     'https://images.unsplash.com/photo-1535378917042-10a22c95931a?auto=format&fit=crop&w=800&q=85',
@@ -33,7 +39,9 @@ const NICHE_IMAGES: Record<string, string[]> = {
 function getRandomImage(category: string = 'default'): string {
   const cat = category.toLowerCase()
   let pool = NICHE_IMAGES.default
-  if (cat.includes('tech') || cat.includes('ia') || cat.includes('tecnologia')) {
+  if (cat.includes('socc') || cat.includes('futebol') || cat.includes('foot') || cat.includes('esport') || cat.includes('sport')) {
+    pool = NICHE_IMAGES.sports
+  } else if (cat.includes('tech') || cat.includes('ia') || cat.includes('tecnologia')) {
     pool = NICHE_IMAGES.tech
   } else if (cat.includes('life') || cat.includes('estilo') || cat.includes('saúde')) {
     pool = NICHE_IMAGES.lifestyle
@@ -142,7 +150,7 @@ export async function POST(request: NextRequest) {
           hookIdea: t.hookIdea || 'Você ainda está cometendo esse erro clássico?',
           visualStyleRecommended: t.visualStyleRecommended || 'Cyberpunk',
           retentionScore: Number(t.retentionScore) || Math.floor(Math.random() * 10 + 86),
-          image: getRandomImage(t.category || category),
+          image: getRandomImage(t.category || category || niche),
         }))
 
         return NextResponse.json({
@@ -157,63 +165,140 @@ export async function POST(request: NextRequest) {
     // Falha silenciosa, segue para Inteligência Curada com geração algorítmica
   }
 
-  // 3. TENTATIVA: Inteligência Curada com Variações Dinâmicas e Suporte a Nicho Customizado
+  // 3. TENTATIVA: Inteligência Curada com Variações Dinâmicas e Reconhecimento Semântico de Nicho
   let basePool = [...MOCK_TRENDS]
 
-  // Se o usuário digitou um nicho personalizado, geramos tendências personalizadas com ganchos testados
+  // Se o usuário pesquisou por um nicho específico
   if (niche) {
+    const nLower = niche.toLowerCase()
+
+    // 1. SOCCER / FUTEBOL / SPORTS
+    if (
+      nLower.includes('soccer') ||
+      nLower.includes('futebol') ||
+      nLower.includes('football') ||
+      nLower.includes('esporte') ||
+      nLower.includes('sport') ||
+      nLower.includes('champions') ||
+      nLower.includes('gol') ||
+      nLower.includes('bola')
+    ) {
+      const soccerTrends: TrendItem[] = [
+        {
+          id: `soccer-1-${Date.now()}`,
+          tag: '#GolsHistoricos',
+          topic: 'O Chute que Desafiou as Leis da Física',
+          growth: '+320%',
+          color: 'cyan',
+          category: 'Futebol & Esportes',
+          insight: 'Análises de curvas aerodinâmicas e faltas lendárias geram debates gigantescos nos comentários.',
+          hookIdea: 'O chute de falta de 1997 que cientistas tentam explicar até hoje.',
+          visualStyleRecommended: 'Cinematic',
+          retentionScore: 96,
+          image: NICHE_IMAGES.sports[0],
+        },
+        {
+          id: `soccer-2-${Date.now()}`,
+          tag: '#RegrasDoFutebol',
+          topic: 'A Regra Mais Bizarra do Futebol',
+          growth: '+245%',
+          color: 'pink',
+          category: 'Futebol & Esportes',
+          insight: 'Situações inusitadas de faltas e pênaltis geram alta curiosidade e compartilhamentos.',
+          hookIdea: 'Se a bola furar antes de entrar no gol, o que o juiz deve marcar?',
+          visualStyleRecommended: 'Pixar 3D',
+          retentionScore: 93,
+          image: NICHE_IMAGES.sports[1],
+        },
+        {
+          id: `soccer-3-${Date.now()}`,
+          tag: '#LendasDaBola',
+          topic: 'O Recorde Impossível de Ser Batido',
+          growth: '+198%',
+          color: 'purple',
+          category: 'Futebol & Esportes',
+          insight: 'Comparações históricas entre épocas do futebol prendem a atenção até o segundo final.',
+          hookIdea: 'Existe um recorde no futebol que nenhum jogador moderno conseguiu alcançar.',
+          visualStyleRecommended: 'Cinematic',
+          retentionScore: 94,
+          image: NICHE_IMAGES.sports[2],
+        },
+        {
+          id: `soccer-4-${Date.now()}`,
+          tag: '#CuriosidadesDoFutebol',
+          topic: 'A Partida com o Placar Mais Bizarro da História',
+          growth: '+165%',
+          color: 'amber',
+          category: 'Futebol & Esportes',
+          insight: 'Fatos históricos bizarros que soam inacreditáveis prendem o espectador do início ao fim.',
+          hookIdea: 'O jogo oficial onde um time fez 149 gols contra de propósito em protesto.',
+          visualStyleRecommended: 'Anime / Manga',
+          retentionScore: 91,
+          image: NICHE_IMAGES.sports[3],
+        },
+      ]
+
+      return NextResponse.json({
+        success: true,
+        source: 'niche_engine',
+        providerName: 'Coolhunter Futebol & Esportes AI',
+        trends: soccerTrends,
+      })
+    }
+
+    // 2. QUALQUER OUTRO NICHO CUSTOMIZADO (Com frases e ganchos em português natural)
     const customTrends: TrendItem[] = [
       {
         id: `custom-niche-1-${Date.now()}`,
-        tag: `#${niche.replace(/\s+/g, '')}Viral`,
-        topic: `O Segredo de Alto Retorno em ${niche}`,
+        tag: `#SegredosDe${niche.replace(/\s+/g, '')}`,
+        topic: `O Detalhe Oculto que Quase Ninguém Conhece sobre ${niche}`,
         growth: `+${Math.floor(Math.random() * 120 + 220)}%`,
         color: 'cyan',
         category: niche,
-        insight: `Vídeos que expõem erros comuns em ${niche} estão alcançando 3x mais tempo médio de retenção.`,
-        hookIdea: `O erro fatal que quase todo mundo comete com ${niche} e ninguém te conta.`,
-        visualStyleRecommended: 'Cyberpunk',
+        insight: `Fatos contraintuitivos sobre ${niche} estão gerando mais de 70% de retenção nos primeiros 3s.`,
+        hookIdea: `O maior erro que 90% das pessoas cometem com ${niche} e ninguém te conta.`,
+        visualStyleRecommended: 'Cinematic',
         retentionScore: 95,
-        image: getRandomImage('tech'),
+        image: getRandomImage(niche),
       },
       {
         id: `custom-niche-2-${Date.now()}`,
-        tag: `#HackDe${niche.replace(/\s+/g, '')}`,
-        topic: `Atalho Prático em 15 Segundos para ${niche}`,
+        tag: `#DicasDe${niche.replace(/\s+/g, '')}`,
+        topic: `3 Fatos Surpreendentes sobre ${niche}`,
         growth: `+${Math.floor(Math.random() * 80 + 160)}%`,
         color: 'pink',
         category: niche,
-        insight: `Formato 'Antes e Depois' focado em ${niche} estimula compartilhamentos diretos no WhatsApp.`,
-        hookIdea: `Como economizar 5 horas por semana em ${niche} usando este único método.`,
-        visualStyleRecommended: 'Cinematic',
+        insight: `Curiosidades rápidas em formato de contagem regressiva forçam o público a assistir até o fim.`,
+        hookIdea: `Três coisas inacreditáveis sobre ${niche} que você provavelmente não sabia.`,
+        visualStyleRecommended: 'Pixar 3D',
         retentionScore: 91,
-        image: getRandomImage('lifestyle'),
+        image: getRandomImage(niche),
       },
       {
         id: `custom-niche-3-${Date.now()}`,
-        tag: `#${niche.replace(/\s+/g, '')}SemFiltro`,
-        topic: `A Verdade Contraintuitiva sobre ${niche}`,
+        tag: `#${niche.replace(/\s+/g, '')}Em15s`,
+        topic: `Como Dominar ${niche} sem Perder Tempo`,
         growth: `+${Math.floor(Math.random() * 70 + 140)}%`,
         color: 'purple',
         category: niche,
-        insight: `Opiniões polêmicas fundamentadas geram taxas de comentários 4x superiores à média.`,
-        hookIdea: `Pare de seguir o conselho tradicional sobre ${niche} se você quiser resultados reais.`,
+        insight: `Ganchos de alívio e simplificação têm taxa de compartilhamento 2,3x superior à média.`,
+        hookIdea: `Se você quer resultados rápidos em ${niche}, comece a aplicar isso hoje.`,
         visualStyleRecommended: 'Anime / Manga',
         retentionScore: 89,
-        image: getRandomImage('productivity'),
+        image: getRandomImage(niche),
       },
       {
         id: `custom-niche-4-${Date.now()}`,
-        tag: `#GuiaRapido${niche.replace(/\s+/g, '')}`,
-        topic: `Ferramentas e Truques Essenciais para ${niche}`,
+        tag: `#${niche.replace(/\s+/g, '')}NaPratica`,
+        topic: `A Técnica Pouco Conhecida em ${niche}`,
         growth: `+${Math.floor(Math.random() * 60 + 120)}%`,
         color: 'amber',
         category: niche,
-        insight: `Listas de recursos de rápida aplicação têm a maior taxa de salvamentos no feed do TikTok.`,
-        hookIdea: `Três recursos gratuitos de ${niche} que você deveria ter começado a usar ontem.`,
-        visualStyleRecommended: 'Pixar 3D',
+        insight: `Dicas de aplicação imediata provocam enxurrada de comentários de validação.`,
+        hookIdea: `O truque prático de ${niche} que vai economizar horas da sua semana.`,
+        visualStyleRecommended: 'Cyberpunk',
         retentionScore: 87,
-        image: getRandomImage('food'),
+        image: getRandomImage(niche),
       },
     ]
 

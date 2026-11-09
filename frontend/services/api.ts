@@ -69,7 +69,7 @@ export async function fetchTrendsApi(
 }
 
 /**
- * 2. Generate 15s Script and Growth Metadata via n8n /webhook/generate-script
+ * 2. Generate 15s Script and Growth Metadata via /api/generate-script (delegating to n8n, Ollama, or Semantic Engine)
  */
 export async function generateScriptApi(
   topic: string,
@@ -78,13 +78,15 @@ export async function generateScriptApi(
   voice: string = 'pt-BR-FranciscaNeural',
   n8nUrl?: string
 ): Promise<{ script: GeneratedScript; growth: GrowthMetadata; source: string }> {
-  const base = (n8nUrl || getStoredConfig().n8nUrl).replace(/\/$/, '')
+  const config = getStoredConfig()
+  const targetN8n = n8nUrl || config.n8nUrl
+
   try {
-    const res = await fetch(`${base}/webhook/generate-script`, {
+    const res = await fetch('/api/generate-script', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic, style, duration, voice }),
-      signal: AbortSignal.timeout(15000),
+      body: JSON.stringify({ topic, style, duration, voice, n8nUrl: targetN8n }),
+      signal: AbortSignal.timeout(18000),
     })
 
     if (res.ok) {
@@ -93,29 +95,35 @@ export async function generateScriptApi(
         return {
           script: {
             topic: data.script.topic || topic,
-            styleName: data.script.style || style,
-            duration: data.script.targetDuration || duration,
+            styleName: data.script.styleName || data.script.style || style,
+            duration: data.script.targetDuration || data.script.duration || duration,
             scenes: data.script.scenes || [],
             fullNarration: data.script.fullNarration || '',
           },
           growth: {
             title: data.growth.title || `POV: Quando você descobre ${topic}`,
             description: data.growth.description || '',
-            hashtags: data.growth.hashtags || ['#fyp', '#viral', '#tecnologia'],
+            hashtags: data.growth.hashtags || ['#fyp', '#viral', '#trending'],
             callToActionQuestion: data.growth.callToActionQuestion,
             suggestedAudioVibe: data.growth.suggestedAudioVibe,
           },
-          source: 'n8n_live',
+          source: data.source || 'api_generate_script',
         }
       }
     }
   } catch (err) {
-    console.warn('[API Script] n8n script generator offline or unreachable, using local fallback:', err)
+    console.warn('[API Script] Error calling /api/generate-script, using local fallback:', err)
   }
 
-  // Graceful fallback script matching the user's idea
+  // Graceful fallback strictly focused on the user's actual topic
+  const cleanTopic = topic
+    .replace(/^["“]|["”]$/g, '')
+    .replace(/gancho.*?:/i, '')
+    .replace(/tema.*?:/i, '')
+    .trim()
+
   const fallbackScript: GeneratedScript = {
-    topic,
+    topic: cleanTopic,
     styleName: style,
     duration,
     scenes: [
@@ -123,38 +131,33 @@ export async function generateScriptApi(
         order: 1,
         type: 'hook',
         timeRange: '0-3s',
-        narrationText: `Você ainda perde horas criando vídeos sobre ${topic}?`,
-        imagePromptEnglish: `Dramatic high contrast opening scene for ${topic}, glowing neon elements, ${style.toLowerCase()} style, 8k render, vertical 9:16 aspect ratio`,
+        narrationText: `Você sabia disso sobre ${cleanTopic}?`,
+        imagePromptEnglish: `Dramatic high contrast opening scene capturing ${cleanTopic}, stunning visual details, ${style.toLowerCase()} style, 8k render, vertical 9:16 aspect ratio`,
       },
       {
         order: 2,
         type: 'body',
         timeRange: '3-12s',
-        narrationText: 'O StudioOps automatiza roteiro, imagens de alta resolução e áudio na nuvem com um único clique.',
-        imagePromptEnglish: `Futuristic holographic workflow animating scenes dynamically, ${style.toLowerCase()} aesthetic, cinematic volumetric lighting, 8k, 9:16 aspect ratio`,
+        narrationText: `Esse detalhe surpreendente sobre ${cleanTopic} muda completamente a forma como a maioria das pessoas enxerga o assunto.`,
+        imagePromptEnglish: `Detailed dynamic action scene illustrating ${cleanTopic}, rich volumetric lighting, ${style.toLowerCase()} style, cinematic 8k, vertical 9:16 aspect ratio`,
       },
       {
         order: 3,
         type: 'cta',
         timeRange: '12-15s',
-        narrationText: 'Comente TESTAR para receber acesso imediato!',
-        imagePromptEnglish: `Silhouette of a creator pointing to comments with vibrant neon glow, ${style.toLowerCase()} aesthetic, 8k, vertical 9:16`,
+        narrationText: 'Qual a sua opinião sobre isso? Comente aqui embaixo!',
+        imagePromptEnglish: `Inspiring closing visual of ${cleanTopic} with dramatic cinematic lighting and lens flare, ${style.toLowerCase()} style, vertical 9:16`,
       },
     ],
-    fullNarration: `Você ainda perde horas criando vídeos sobre ${topic}? O StudioOps automatiza roteiro, imagens de alta resolução e áudio na nuvem com um único clique. Comente TESTAR para receber acesso imediato!`,
+    fullNarration: `Você sabia disso sobre ${cleanTopic}? Esse detalhe surpreendente sobre ${cleanTopic} muda completamente a forma como a maioria das pessoas enxerga o assunto. Qual a sua opinião sobre isso? Comente aqui embaixo!`,
   }
 
-  // Clean up topic for clean display in title/description if it came from trend selection
-  const cleanTopic = topic.includes('Tema viral:')
-    ? topic.replace(/Tema viral:\s*/i, '').split('—')[0].trim()
-    : topic
-
   const fallbackGrowth: GrowthMetadata = {
-    title: `POV: Quando você descobre como viralizar com ${cleanTopic}`,
-    description: `Descubra a tecnologia que está transformando criadores em máquinas virais com ${cleanTopic}. Comente QUERO para ver o tutorial completo! #viral`,
-    hashtags: ['#fyp', '#viral', '#tecnologia', '#inteligenciaartificial', '#studioops', '#criatividade'],
-    callToActionQuestion: 'Você usaria essa automação no seu canal?',
-    suggestedAudioVibe: 'Dark Synthwave 120BPM trending bass',
+    title: `A verdade impressionante sobre ${cleanTopic.slice(0, 45)}`,
+    description: `Descubra a história e os segredos por trás de ${cleanTopic}. O que você acha? Comente abaixo! #viral`,
+    hashtags: ['#fyp', '#viral', '#curiosidades', '#aprendanotiktok', '#fatos'],
+    callToActionQuestion: 'Você concorda com isso?',
+    suggestedAudioVibe: 'Cinematic Trending Bass 120BPM',
   }
 
   return { script: fallbackScript, growth: fallbackGrowth, source: 'mock_fallback' }

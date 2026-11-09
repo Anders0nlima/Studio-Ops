@@ -1344,8 +1344,13 @@ export default function CreatorDashboard() {
   }, [isSettingsOpen])
 
   const handleSelectTrend = (trend: TrendItem) => {
-    const hookPrefix = trend.hookIdea ? `Gancho de Retenção (0-3s): "${trend.hookIdea}"\n\n` : ''
-    setSelectedPromptIdea(`${hookPrefix}Tema viral: ${trend.tag} — ${trend.topic || ''}\nFoco de retenção: ${trend.insight}`)
+    // Formatar uma ideia limpa e focada no tema real, sem prefixos robóticos
+    const cleanTopic = trend.topic || trend.tag
+    const promptText = trend.hookIdea
+      ? `"${trend.hookIdea}" — ${cleanTopic}`
+      : `${cleanTopic}: ${trend.insight}`
+
+    setSelectedPromptIdea(promptText)
     if (trend.visualStyleRecommended) {
       setSelectedStyleName(trend.visualStyleRecommended)
     }
